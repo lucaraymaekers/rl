@@ -1,0 +1,45 @@
+version(2);
+project_name = "RL Codebase";
+
+patterns = 
+{
+    "*.c",
+    "*.cu",
+    "*.cpp",
+    "*.h",
+    "*.m",
+    "*.bat",
+    "*.sh",
+    "*.4coder",
+};
+
+blacklist_patterns = 
+{
+    ".*",
+};
+
+load_paths_base = 
+{
+    { ".", .relative = true, .recursive = true, },
+};
+
+load_paths = {
+    .win = load_paths_base,
+    .linux = load_paths_base,
+    .mac = load_paths_base,
+};
+
+commands =
+{
+    .build_default = 
+    {
+        .out = "*compilation*", .save_dirty_files = true,
+        .linux = "sh ./code/build.sh",
+    },
+};
+
+fkey_command =
+{
+    .F1 = "build_default",
+    .F2 = "build_default_release",
+};
