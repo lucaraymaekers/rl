@@ -135,10 +135,34 @@ then
  CU_Compile $(Strip ./lib/cuda-samples/deviceQueryDrv.cpp) -lcuda
  CU_Compile $(Strip ./lib/cuda-samples/topologyQuery.cu)
 fi
-[ "$cuda" = 1 ] && CU_Compile $(Strip ./cuda/foo.cu)
+# [ "$cuda" = 1 ] && CU_Compile $(Strip ./cuda/sphere.cu)
+
+
+true && CU_Compile $(Strip ./cuda/platform.cpp) "-lX11"
+if true
+then
+ Flags="
+
+  -Wno-deprecated-gpu-targets
+  -diag-suppress 2464
+  -gencode arch=compute_50,code=sm_50
+  -g -G  
+
+  -DOS_LINUX=1
+  -I$ScriptDirectory
+  --compiler-options '-fPIC' 
+  --shared 
+  -o $Build/sphere.so
+  ./cuda/sphere.cu
+ "
+ printf '%s\n' ./cuda/sphere.cu
+ nvcc $Flags
+fi
 
 if [ "$DidWork" = 0 ]
 then
  printf 'ERROR: No valid build target provided.\n'
- printf 'Usage: %s <samples/day1/day2/day3/day3_cu>\n' "$0"
+ printf 'Usage: %s <samples/cuda/hash>\n' "$0"
 fi
+
+

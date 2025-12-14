@@ -29,6 +29,8 @@ _Pragma("GCC diagnostic push") \
 _Pragma("GCC diagnostic ignored \"-Wall\"") \
 _Pragma("GCC diagnostic ignored \"-Wextra\"") \
 _Pragma("GCC diagnostic ignored \"-Wconversion\"") \
+_Pragma("GCC diagnostic ignored \"-Wsign-conversion\"") \
+_Pragma("GCC diagnostic ignored \"-Wsign-compare\"") \
 _Pragma("GCC diagnostic ignored \"-Wdouble-promotion\"") \
 _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 # define POP_WARNINGS _Pragma("GCC diagnostic pop")
@@ -42,6 +44,15 @@ _Pragma("clang diagnostic ignored \"-Weverything\"")
 #else
 # error "No compatible compiler found"
 #endif
+
+#if __cplusplus
+# define C_LINKAGE extern "C"
+#else
+# define C_LINKAGE
+#endif
+
+#define ERROR_FMT "%s(%d): ERROR: "
+#define ERROR_ARG __FILE__, __LINE__
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 

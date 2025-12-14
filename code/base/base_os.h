@@ -15,7 +15,13 @@ struct entry_point_params
 
 #define ENTRY_POINT(Name) void *Name(entry_point_params *Params)
 typedef ENTRY_POINT(entry_point_func);
+
+#if __cplusplus
+extern "C"
+#endif
 ENTRY_POINT(EntryPoint);
+
+#define ErrorLog(Format, ...) OS_PrintFormat(ERROR_FMT Format, ERROR_ARG, ##__VA_ARGS__) 
 
 str8 OS_ReadEntireFileIntoMemory(char *FileName);
 void OS_PrintFormat(char *Format, ...);

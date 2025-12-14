@@ -3,6 +3,11 @@
 #ifndef CU_H
 #define CU_H
 
+#include <cuda_runtime.h>
+
+#define CU_UPDATE_AND_RENDER(Name) void Name(thread_context *Context, arena *CPUArena, arena *GPUArena, u8 *HostPixels, s32 Width, s32 Height, s32 BytesPerPixel, s32 Pitch)
+typedef CU_UPDATE_AND_RENDER(CU_update_and_render);
+
 #define CU_device __device__
 #define CU_host   __host__
 #define CU_kernel __global__
@@ -30,21 +35,23 @@
 #else
 # define CU_Check(Expression) Expression
 #endif
-inline void CU_Check_(cudaError_t Code, char *FileName, s32 Line, b32 Abort=false)
+inline void CU_Check_(cudaError_t Code, char *FileName, s32 Line)
 {
     if(Code != cudaSuccess) 
     {
         OS_PrintFormat("%s(%d): ERROR: %s\n", FileName, Line, cudaGetErrorString(Code));
+#if 0
         if(Abort) 
         {
             exit(Code);
         }
+#endif
     }
 }
 
 arena *CU_ArenaAlloc(arena *CPUArena)
 {
-    umm DefaultSize = Kilobytes(64);
+    umm DefaultSize = Megabytes(32);
     
     arena *Arena = PushStruct(CPUArena, arena);
     

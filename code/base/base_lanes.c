@@ -14,6 +14,22 @@ void ThreadContextSelect(thread_context *Context)
     ThreadContext = Context;
 }
 
+arena *GetScratch()
+{
+    arena *Arena = ThreadContext->Arena; 
+    return Arena;
+}
+
+void BeginScratch(arena *Arena)
+{
+    Arena->BackPos = Arena->Pos;
+}
+
+void EndScratch(arena *Arena)
+{
+    Arena->Pos = Arena->BackPos;
+}
+
 void LaneIceberg(void)
 {
     OS_BarrierWait(ThreadContext->Barrier);

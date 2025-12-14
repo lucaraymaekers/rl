@@ -61,7 +61,7 @@ str8 OS_ReadEntireFileIntoMemory(char *FileName)
             int Error = fstat(File, &StatBuffer);
             AssertErrno(Error != -1);
             
-            Result.Size = StatBuffer.st_size;
+            Result.Size = (umm)StatBuffer.st_size;
             Result.Data = (u8 *)mmap(0, Result.Size, PROT_READ, MAP_PRIVATE, File, 0);
             AssertErrno(Result.Data != MAP_FAILED);
         }
@@ -126,7 +126,7 @@ void LinuxMainEntryPoint(int ArgsCount, char **Args)
     s64 ThreadsCount = get_nprocs();
 #endif
     
-    os_thread *Threads = PushArray(Arena, os_thread, ThreadsCount);
+    os_thread *Threads = PushArray(Arena, os_thread, (umm)ThreadsCount);
     s32 Ret = 0;
     
     prctl(PR_SET_NAME, ThreadName);
