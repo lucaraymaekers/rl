@@ -460,24 +460,6 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
                              (pY >= MinY && pY < MaxY));
             if(InsideMap)
             {
-                for(s32 dY = -PointRadius; dY <= PointRadius; dY += 1)
-                {
-                    for(s32 dX = -PointRadius; dX <= PointRadius; dX += 1)
-                    {
-                        if(Squared((f32)dX) + Squared((f32)dY) <= Squared((f32)PointRadius))
-                        {                    
-                            s32 SX = pX + dX;
-                            s32 SY = pY + dY;
-                            if((SX >= 0 && SX < Buffer->Width) && 
-                               (SY >= 0 && SY < Buffer->Height)) 
-                            {
-                                u32 *Pixel = (u32 *)((u8 *)Buffer->Pixels + SY*Buffer->Pitch + SX*Buffer->BytesPerPixel);
-                                *Pixel = (Input->Buttons[PlatformButton_Left].EndedDown ? ColorCursorPressed : ColorCursor); 
-                            }
-                        }
-                    }
-                }
-                
                 if(WasPressed(Input->Buttons[PlatformButton_Left]))
                 {
                     s32 pX = Input->MouseX;
