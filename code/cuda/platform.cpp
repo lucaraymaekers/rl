@@ -16,7 +16,17 @@ POP_WARNINGS;
 
 global_variable b32 GlobalRunning = true;
 
-CU_UPDATE_AND_RENDER(UpdateAndRenderStub)
+struct linux_x11_context
+{
+    XImage *WindowImage;
+    Display *DisplayHandle;
+    Window WindowHandle;
+    GC DefaultGC;
+    XIC InputContext;
+    Atom WM_DELETE_WINDOW;
+};
+
+UPDATE_AND_RENDER(UpdateAndRenderStub)
 {
     
 }
@@ -62,9 +72,9 @@ ConvertUTF8StringToRune(u8 UTF8String[4])
     return Codepoint;
 }
 
-
+//~ Linux
 internal void 
-LinuxProcessKeyPress(game_button_state *ButtonState, b32 IsDown)
+LinuxProcessKeyPress(app_button_state *ButtonState, b32 IsDown)
 {
     if(ButtonState->EndedDown != IsDown)
     {
@@ -73,14 +83,125 @@ LinuxProcessKeyPress(game_button_state *ButtonState, b32 IsDown)
     }
 }
 
+typedef struct timespec timespec;
+
+internal timespec 
+LinuxGetWallClock()
+{
+    timespec Counter = {};
+    clock_gettime(CLOCK_MONOTONIC, &Counter);
+    return Counter;
+}
+
+internal s64 
+LinuxGetNSecondsElapsed(timespec Start, timespec End)
+{
+    s64 Result = 0;
+    Result = ((s64)End.tv_sec*1000000000 + (s64)End.tv_nsec) - ((s64)Start.tv_sec*1000000000 + (s64)Start.tv_nsec);
+    return Result;
+}
+
+internal f32 
+LinuxGetSecondsElapsed(timespec Start, timespec End)
+{
+    f32 Result = 0;
+    Result = ((f32)LinuxGetNSecondsElapsed(Start, End)/1000.0f/1000.0f/1000.0f);
+    
+    return Result;
+}
+
+linux_x11_context LinuxInitX11(app_offscreen_buffer *Buffer)
+{
+    linux_x11_context Result = {};
+    
+    s32 XRet = 0;
+    
+    Result.DisplayHandle = XOpenDisplay(0);
+    if(Result.DisplayHandle)
+    {
+        Window RootWindow = XDefaultRootWindow(Result.DisplayHandle);
+        s32 Screen = XDefaultScreen(Result.DisplayHandle);
+        s32 ScreenBitDepth = 24;
+        XVisualInfo WindowVisualInfo = {};
+        if(XMatchVisualInfo(Result.DisplayHandle, Screen, ScreenBitDepth, TrueColor, &WindowVisualInfo))
+        {
+            XSetWindowAttributes WindowAttributes = {};
+            WindowAttributes.bit_gravity = StaticGravity;
+#if HANDMADE_INTERNAL            
+            WindowAttributes.background_pixel = 0xFF00FF;
+#endif
+            WindowAttributes.colormap = XCreateColormap(Result.DisplayHandle, RootWindow, WindowVisualInfo.visual, AllocNone);
+            WindowAttributes.event_mask = (StructureNotifyMask | 
+                                           KeyPressMask | KeyReleaseMask | 
+                                           ButtonPressMask | ButtonReleaseMask |
+                                           EnterWindowMask | LeaveWindowMask);
+            u64 WindowAttributeMask = CWBitGravity | CWBackPixel | CWColormap | CWEventMask;
+            
+            Result.WindowHandle = XCreateWindow(Result.DisplayHandle, RootWindow,
+                                                0, 0,
+                                                Buffer->Width, Buffer->Height,
+                                                0,
+                                                WindowVisualInfo.depth, InputOutput,
+                                                WindowVisualInfo.visual, WindowAttributeMask, &WindowAttributes);
+            if(Result.WindowHandle)
+            {
+                XRet = XStoreName(Result.DisplayHandle, Result.WindowHandle, "Handmade Window");
+                
+                // NOTE(luca): If we set the MaxWidth and MaxHeigth to the same values as MinWidth and MinHeight there is a bug on dwm where it won't update the window decorations when trying to remove them.
+                // In the future we will allow resizing to any size so this does not matter that much.
+#if 0                    
+                LinuxSetSizeHint(Result.DisplayHandle, Result.WindowHandle, 0, 0, 0, 0);
+#endif
+                
+                // NOTE(luca): Tiling window managers should treat windows with the WM_TRANSIENT_FOR property as pop-up windows.  This way we ensure that we will be a floating window.  This works on my setup (dwm). 
+                XRet = XSetTransientForHint(Result.DisplayHandle, Result.WindowHandle, RootWindow);
+                
+                Result.WM_DELETE_WINDOW = XInternAtom(Result.DisplayHandle, "WM_DELETE_WINDOW", False);
+                if(!XSetWMProtocols(Result.DisplayHandle, Result.WindowHandle, &Result.WM_DELETE_WINDOW, 1))
+                {
+                    // TODO(luca): Logging
+                }
+                
+                XClassHint ClassHint = {};
+                ClassHint.res_name = "Handmade Window";
+                ClassHint.res_class = "Handmade Window";
+                XSetClassHint(Result.DisplayHandle, Result.WindowHandle, &ClassHint);
+                
+                XSetLocaleModifiers("");
+                
+                XIM InputMethod = XOpenIM(Result.DisplayHandle, 0, 0, 0);
+                if(!InputMethod){
+                    XSetLocaleModifiers("@im=none");
+                    InputMethod = XOpenIM(Result.DisplayHandle, 0, 0, 0);
+                }
+                Result.InputContext = XCreateIC(InputMethod,
+                                                XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
+                                                XNClientWindow, Result.WindowHandle,
+                                                XNFocusWindow,  Result.WindowHandle,
+                                                NULL);
+                XSetICFocus(Result.InputContext);
+                
+                s32 BitsPerPixel = Buffer->BytesPerPixel*8;
+                Result.WindowImage = XCreateImage(Result.DisplayHandle, WindowVisualInfo.visual, WindowVisualInfo.depth, ZPixmap, 0, (char *)Buffer->Pixels, Buffer->Width, Buffer->Height, BitsPerPixel, 0);
+                Result.DefaultGC = DefaultGC(Result.DisplayHandle, Screen);
+                
+                XRet = XMapWindow(Result.DisplayHandle, Result.WindowHandle);
+                XRet = XFlush(Result.DisplayHandle);
+            }
+        }
+    }
+    
+    return Result;
+}
+
+
 internal void 
-LinuxProcessPendingMessages(Display *DisplayHandle, Window WindowHandle, s32 Width, s32 Height,
-                            XIC InputContext, Atom WM_DELETE_WINDOW, game_input *Input)
+LinuxProcessPendingMessages(linux_x11_context *Linux, app_input *Input, app_offscreen_buffer *Buffer)
 {
     XEvent WindowEvent = {};
-    while(XPending(DisplayHandle) > 0)
+    while(XPending(Linux->DisplayHandle) > 0)
     {
-        XNextEvent(DisplayHandle, &WindowEvent);
+        XNextEvent(Linux->DisplayHandle, &WindowEvent);
         b32 FilteredEvent = XFilterEvent(&WindowEvent, 0);
         if(FilteredEvent)
         {
@@ -142,7 +263,7 @@ LinuxProcessPendingMessages(Display *DisplayHandle, Window WindowHandle, s32 Wid
                     u8 LookupBuffer[4] = {};
                     Status LookupStatus = {};
                     
-                    s32 BytesLookepdUp = Xutf8LookupString(InputContext, &WindowEvent.xkey, 
+                    s32 BytesLookepdUp = Xutf8LookupString(Linux->InputContext, &WindowEvent.xkey, 
                                                            (char *)&LookupBuffer, ArrayCount(LookupBuffer), 
                                                            0, &LookupStatus);
                     Assert(LookupStatus != XBufferOverflow);
@@ -171,7 +292,7 @@ LinuxProcessPendingMessages(Display *DisplayHandle, Window WindowHandle, s32 Wid
                             if((Codepoint >= ' ' || Codepoint < 0) ||
                                Codepoint == '\r' || Codepoint == '\b' || Codepoint == '\n')
                             {                            
-                                game_text_button *TextButton = &Input->Text.Buffer[Input->Text.Count++];
+                                app_text_button *TextButton = &Input->Text.Buffer[Input->Text.Count++];
                                 TextButton->Codepoint = Codepoint;
                                 TextButton->Shift   = (WindowEvent.xkey.state & ShiftMask);
                                 TextButton->Control = (WindowEvent.xkey.state & ControlMask);
@@ -210,30 +331,30 @@ LinuxProcessPendingMessages(Display *DisplayHandle, Window WindowHandle, s32 Wid
                 if(0) {}
                 else if(Button == Button1)
                 {
-                    LinuxProcessKeyPress(&Input->MouseButtons[PlatformMouseButton_Left], IsDown);
+                    LinuxProcessKeyPress(&Input->Buttons[PlatformButton_Left], IsDown);
                 }
                 else if(Button == Button2)
                 {
-                    LinuxProcessKeyPress(&Input->MouseButtons[PlatformMouseButton_Middle], IsDown);
+                    LinuxProcessKeyPress(&Input->Buttons[PlatformButton_Middle], IsDown);
                 }
                 else if(Button == Button3)
                 {
-                    LinuxProcessKeyPress(&Input->MouseButtons[PlatformMouseButton_Right], IsDown);
+                    LinuxProcessKeyPress(&Input->Buttons[PlatformButton_Right], IsDown);
                 }
                 else if(Button == Button4)
                 {
-                    LinuxProcessKeyPress(&Input->MouseButtons[PlatformMouseButton_ScrollUp], IsDown);
+                    LinuxProcessKeyPress(&Input->Buttons[PlatformButton_ScrollUp], IsDown);
                 }
                 else if(Button == Button5)
                 {
-                    LinuxProcessKeyPress(&Input->MouseButtons[PlatformMouseButton_ScrollDown], IsDown);
+                    LinuxProcessKeyPress(&Input->Buttons[PlatformButton_ScrollDown], IsDown);
                 }
             } break;
             
             case DestroyNotify:
             {
                 XDestroyWindowEvent *Event = (XDestroyWindowEvent *)&WindowEvent;
-                if(Event->window == WindowHandle)
+                if(Event->window == Linux->WindowHandle)
                 {
                     GlobalRunning = false;
                 }
@@ -242,9 +363,9 @@ LinuxProcessPendingMessages(Display *DisplayHandle, Window WindowHandle, s32 Wid
             case ClientMessage:
             {
                 XClientMessageEvent *Event = (XClientMessageEvent *)&WindowEvent;
-                if((Atom)Event->data.l[0] == WM_DELETE_WINDOW)
+                if((Atom)Event->data.l[0] == Linux->WM_DELETE_WINDOW)
                 {
-                    XDestroyWindow(DisplayHandle, WindowHandle);
+                    XDestroyWindow(Linux->DisplayHandle, Linux->WindowHandle);
                     GlobalRunning = false;
                 }
             } break;
@@ -262,18 +383,16 @@ LinuxProcessPendingMessages(Display *DisplayHandle, Window WindowHandle, s32 Wid
         }
     }
     
-    
-    
     // TODO(luca): Move this into process pending messages.
     s32 MouseX = 0, MouseY = 0, MouseZ = 0;
     u32 MouseMask = 0;
     u64 Ignored;
-    if(XQueryPointer(DisplayHandle, WindowHandle, 
+    if(XQueryPointer(Linux->DisplayHandle, Linux->WindowHandle, 
                      &Ignored, &Ignored, (int *)&Ignored, (int *)&Ignored,
                      &MouseX, &MouseY, &MouseMask))
     {
-        if(MouseX <= Width && MouseX >= 0 &&
-           MouseY <= Height && MouseY >= 0)
+        if(MouseX <= Buffer->Width && MouseX >= 0 &&
+           MouseY <= Buffer->Height && MouseY >= 0)
         {
             Input->MouseY = MouseY;
             Input->MouseX = MouseX;
@@ -281,132 +400,50 @@ LinuxProcessPendingMessages(Display *DisplayHandle, Window WindowHandle, s32 Wid
     }
 }
 
-
-struct linux_init_x11_result
+internal void
+LinuxUpdateImage(linux_x11_context *Linux, app_offscreen_buffer *Buffer)
 {
-    XImage *WindowImage;
-    Display *DisplayHandle;
-    Window WindowHandle;
-    GC DefaultGC;
-    XIC InputContext;
-};
-
-linux_init_x11_result LinuxInitX11(u8 *HostPixels, s32 Width, s32 Height)
-{
-    linux_init_x11_result Result = {};
-    
-    s32 XRet = 0;
-    
-    Result.DisplayHandle = XOpenDisplay(0);
-    if(Result.DisplayHandle)
-    {
-        Window RootWindow = XDefaultRootWindow(Result.DisplayHandle);
-        s32 Screen = XDefaultScreen(Result.DisplayHandle);
-        s32 ScreenBitDepth = 24;
-        XVisualInfo WindowVisualInfo = {};
-        if(XMatchVisualInfo(Result.DisplayHandle, Screen, ScreenBitDepth, TrueColor, &WindowVisualInfo))
-        {
-            XSetWindowAttributes WindowAttributes = {};
-            WindowAttributes.bit_gravity = StaticGravity;
-#if HANDMADE_INTERNAL            
-            WindowAttributes.background_pixel = 0xFF00FF;
-#endif
-            WindowAttributes.colormap = XCreateColormap(Result.DisplayHandle, RootWindow, WindowVisualInfo.visual, AllocNone);
-            WindowAttributes.event_mask = (StructureNotifyMask | 
-                                           KeyPressMask | KeyReleaseMask | 
-                                           ButtonPressMask | ButtonReleaseMask |
-                                           EnterWindowMask | LeaveWindowMask);
-            u64 WindowAttributeMask = CWBitGravity | CWBackPixel | CWColormap | CWEventMask;
-            
-            Result.WindowHandle = XCreateWindow(Result.DisplayHandle, RootWindow,
-                                                0, 0,
-                                                Width, Height,
-                                                0,
-                                                WindowVisualInfo.depth, InputOutput,
-                                                WindowVisualInfo.visual, WindowAttributeMask, &WindowAttributes);
-            if(Result.WindowHandle)
-            {
-                XRet = XStoreName(Result.DisplayHandle, Result.WindowHandle, "Handmade Window");
-                
-                // NOTE(luca): If we set the MaxWidth and MaxHeigth to the same values as MinWidth and MinHeight there is a bug on dwm where it won't update the window decorations when trying to remove them.
-                // In the future we will allow resizing to any size so this does not matter that much.
-#if 0                    
-                LinuxSetSizeHint(Result.DisplayHandle, Result.WindowHandle, 0, 0, 0, 0);
-#endif
-                
-                // NOTE(luca): Tiling window managers should treat windows with the WM_TRANSIENT_FOR property as pop-up windows.  This way we ensure that we will be a floating window.  This works on my setup (dwm). 
-                XRet = XSetTransientForHint(Result.DisplayHandle, Result.WindowHandle, RootWindow);
-                
-                Atom WM_DELETE_WINDOW = XInternAtom(Result.DisplayHandle, "WM_DELETE_WINDOW", False);
-                if(!XSetWMProtocols(Result.DisplayHandle, Result.WindowHandle, &WM_DELETE_WINDOW, 1))
-                {
-                    // TODO(luca): Logging
-                }
-                
-                XClassHint ClassHint = {};
-                ClassHint.res_name = "Handmade Window";
-                ClassHint.res_class = "Handmade Window";
-                XSetClassHint(Result.DisplayHandle, Result.WindowHandle, &ClassHint);
-                
-                XSetLocaleModifiers("");
-                
-                XIM InputMethod = XOpenIM(Result.DisplayHandle, 0, 0, 0);
-                if(!InputMethod){
-                    XSetLocaleModifiers("@im=none");
-                    InputMethod = XOpenIM(Result.DisplayHandle, 0, 0, 0);
-                }
-                Result.InputContext = XCreateIC(InputMethod,
-                                                XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
-                                                XNClientWindow, Result.WindowHandle,
-                                                XNFocusWindow,  Result.WindowHandle,
-                                                NULL);
-                XSetICFocus(Result.InputContext);
-                
-                int BitsPerPixel = 32;
-                int BytesPerPixel = BitsPerPixel/8;
-                int WindowBufferSize = Width*Height*BytesPerPixel;
-                
-                Result.WindowImage = XCreateImage(Result.DisplayHandle, WindowVisualInfo.visual, WindowVisualInfo.depth, ZPixmap, 0, (char *)HostPixels, Width, Height, BitsPerPixel, 0);
-                Result.DefaultGC = DefaultGC(Result.DisplayHandle, Screen);
-                
-                XRet = XMapWindow(Result.DisplayHandle, Result.WindowHandle);
-                XRet = XFlush(Result.DisplayHandle);
-            }
-        }
-    }
-    
-    return Result;
+    XPutImage(Linux->DisplayHandle,
+              Linux->WindowHandle, 
+              Linux->DefaultGC, 
+              Linux->WindowImage, 0, 0, 0, 0, 
+              Buffer->Width, 
+              Buffer->Height);
 }
 
 C_LINKAGE ENTRY_POINT(EntryPoint)
 {
     if(LaneIndex() == 0)
     {
-        s32 Width = 1920/2;
-        s32 Height = 1080/2;
-        s32 BytesPerPixel = 4;
-        s32 Pitch = Width*BytesPerPixel;
-        s32 Size = Width*Height*BytesPerPixel;
+        arena *CPUArena = GetScratch();
+        
+        app_offscreen_buffer Buffer = {};
+        Buffer.Width = 1920/2;
+        Buffer.Height = 1080/2;
+        Buffer.BytesPerPixel = 4;
+        Buffer.Pitch = Buffer.BytesPerPixel*Buffer.Width;
+        Buffer.Pixels = PushArray(CPUArena, u8, Buffer.Pitch*Buffer.Height);
         
         CU_Check(cudaSetDevice(0));
         cudaDeviceProp Prop;
         CU_Check(cudaGetDeviceProperties(&Prop, 0));
-        
-        CU_update_and_render *UpdateAndRender = 0;
-        
-        arena *CPUArena = GetScratch();
         arena *GPUArena = CU_ArenaAlloc(CPUArena);
         
-        u8 *HostPixels = PushArray(CPUArena, u8, Size);
-        
-        linux_init_x11_result LinuxX11 = LinuxInitX11(HostPixels, Width, Height);
-        Atom WM_DELETE_WINDOW = XInternAtom(LinuxX11.DisplayHandle, "WM_DELETE_WINDOW", False);
+        linux_x11_context LinuxContext = LinuxInitX11(&Buffer);
         
         void *Library = 0;
+        update_and_render *UpdateAndRender = 0;
         
-        game_input Input[2] = {};
-        game_input *NewInput = &Input[0];
-        game_input *OldInput = &Input[1];
+        app_state GameState = {};
+        
+        app_input Input[2] = {};
+        app_input *NewInput = &Input[0];
+        app_input *OldInput = &Input[1];
+        
+        timespec LastCounter = LinuxGetWallClock();
+        timespec FlipWallClock = LinuxGetWallClock();
+        f32 GameUpdateHz = 60.0f;
+        f32 TargetSecondsPerFrame = 1.0f/GameUpdateHz; 
         
         GlobalRunning = true;
         while(GlobalRunning)
@@ -414,53 +451,104 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             BeginScratch(CPUArena);
             BeginScratch(GPUArena);
             
-            if(Library)
-            {
-                dlclose(Library);
-            }
-            Library = dlopen("./build/sphere.so", RTLD_NOW);
-            if(!Library)
-            {
-                char *Error = dlerror();
-                ErrorLog("%s\n", Error);
-                UpdateAndRender = UpdateAndRenderStub;
-            }
-            else
-            {
-                UpdateAndRender = (CU_update_and_render *)dlsym(Library, "UpdateAndRender");
-                if(!UpdateAndRender)
+            // Prepare  Input
+            { 
+                NewInput->Text.Count = 0;
+                for(EachIndex(Idx, PlatformButton_Count))
                 {
-                    ErrorLog("Could not find UpdateAndRender.\n");
-                    UpdateAndRender = UpdateAndRenderStub;
+                    NewInput->Buttons[Idx].EndedDown = OldInput->Buttons[Idx].EndedDown;
+                    NewInput->Buttons[Idx].HalfTransitionCount = 0;
                 }
             }
-            Assert(UpdateAndRender);
             
-            
-            NewInput->Text.Count = 0;
-            for(u32 ButtonIndex = 0; ButtonIndex < PlatformMouseButton_Count; ButtonIndex += 1)
-            {
-                NewInput->MouseButtons[ButtonIndex].EndedDown = OldInput->MouseButtons[ButtonIndex].EndedDown;
-                NewInput->MouseButtons[ButtonIndex].HalfTransitionCount = 0;
+            // Load application code
+            {            
+                if(Library)
+                {
+                    dlclose(Library);
+                }
+                Library = dlopen("./build/sphere.so", RTLD_NOW);
+                if(!Library)
+                {
+                    char *Error = dlerror();
+                    ErrorLog("%s\n", Error);
+                    UpdateAndRender = UpdateAndRenderStub;
+                }
+                else
+                {
+                    UpdateAndRender = (update_and_render *)dlsym(Library, "UpdateAndRender");
+                    if(!UpdateAndRender)
+                    {
+                        ErrorLog("Could not find UpdateAndRender.\n");
+                        UpdateAndRender = UpdateAndRenderStub;
+                    }
+                }
+                Assert(UpdateAndRender);
             }
             
-            LinuxProcessPendingMessages(LinuxX11.DisplayHandle, LinuxX11.WindowHandle, 
-                                        Width, Height,
-                                        LinuxX11.InputContext, WM_DELETE_WINDOW, NewInput);
+            LinuxProcessPendingMessages(&LinuxContext, NewInput, &Buffer);
             
-            OS_PrintFormat("%*s (%d, %d)\n", 
-                           NewInput->Text.Count, NewInput->Text.Buffer,
-                           NewInput->MouseX, NewInput->MouseY); 
+#if 1            
+            NewInput->Text.Buffer[NewInput->Text.Count].Codepoint = 0;
+            OS_PrintFormat("%c (%d, %d) 1:%c 2:%c 3:%c\n", 
+                           (u8)NewInput->Text.Buffer[0].Codepoint,
+                           NewInput->MouseX, NewInput->MouseY,
+                           (NewInput->Buttons[PlatformButton_Left  ].EndedDown ? 'x' : 'o'),
+                           (NewInput->Buttons[PlatformButton_Middle].EndedDown ? 'x' : 'o'),
+                           (NewInput->Buttons[PlatformButton_Right ].EndedDown ? 'x' : 'o')); 
+#endif
             
-            UpdateAndRender(ThreadContext, CPUArena, GPUArena,
-                            HostPixels, Width, Height, BytesPerPixel, Pitch);
+            UpdateAndRender(ThreadContext, &GameState, CPUArena, GPUArena, &Buffer, NewInput);
             
-            XPutImage(LinuxX11.DisplayHandle, LinuxX11.WindowHandle, LinuxX11.DefaultGC, LinuxX11.WindowImage, 0, 0, 0, 0, 
-                      Width, Height);
+            // Sleep
+            {            
+                timespec WorkCounter = LinuxGetWallClock();
+                f32 WorkMSPerFrame = (f32)((f32)LinuxGetNSecondsElapsed(LastCounter, WorkCounter)/1000000.f);
+                
+                f32 SecondsElapsedForFrame = LinuxGetSecondsElapsed(LastCounter, WorkCounter);
+                if(SecondsElapsedForFrame < TargetSecondsPerFrame)
+                {
+                    f32 SleepUS = ((TargetSecondsPerFrame - 0.001f - SecondsElapsedForFrame)*1000000.0f);
+                    if(SleepUS > 0)
+                    {
+                        // TODO(luca): Intrinsic
+                        usleep((u32)SleepUS);
+                    }
+                    else
+                    {
+                        // TODO(luca): Logging
+                    }
+                    
+                    f32 TestSecondsElapsedForFrame = (f32)(LinuxGetSecondsElapsed(LastCounter, LinuxGetWallClock()));
+                    if(TestSecondsElapsedForFrame < TargetSecondsPerFrame)
+                    {
+                        // TODO(luca): Log missed sleep
+                    }
+                    
+                    // NOTE(luca): This is to help against sleep granularity.
+                    while(SecondsElapsedForFrame < TargetSecondsPerFrame)
+                    {
+                        SecondsElapsedForFrame = LinuxGetSecondsElapsed(LastCounter, LinuxGetWallClock());
+                    }
+                }
+                else
+                {
+                    // TODO(luca): Log missed frame rate!
+                }
+                
+                timespec EndCounter = LinuxGetWallClock();
+                f32 MSPerFrame = (f32)((f32)LinuxGetNSecondsElapsed(LastCounter, EndCounter)/1000000.f);
+#if 1
+                OS_PrintFormat("%.2fms/f %.2fms/f\n", (f64)WorkMSPerFrame, (f64)MSPerFrame);
+#endif
+                LastCounter = EndCounter;
+            }
             
-            game_input *TempInput = NewInput;
-            NewInput = OldInput;
-            TempInput = NewInput;
+            Swap(OldInput, NewInput);
+            
+            LinuxUpdateImage(&LinuxContext, &Buffer);
+            
+            FlipWallClock = LinuxGetWallClock();
             
             EndScratch(CPUArena);
             EndScratch(GPUArena);

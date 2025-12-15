@@ -129,13 +129,15 @@ void LinuxMainEntryPoint(int ArgsCount, char **Args)
     os_thread *Threads = PushArray(Arena, os_thread, (umm)ThreadsCount);
     s32 Ret = 0;
     
-    prctl(PR_SET_NAME, ThreadName);
+    Ret = prctl(PR_SET_NAME, ThreadName);
+    AssertErrno(Ret != -1);
     
     u64 SharedStorage = 0;
     
     barrier Barrier = (u64)ArenaPush(Arena, 1);
     
-    pthread_barrier_init((pthread_barrier_t *)Barrier, 0, (u32)ThreadsCount);
+    Ret = pthread_barrier_init((pthread_barrier_t *)Barrier, 0, (u32)ThreadsCount);
+    Assert(Ret == 0);
     
     for(s64 Index = 0; Index < ThreadsCount; Index += 1)
     {
@@ -153,7 +155,8 @@ void LinuxMainEntryPoint(int ArgsCount, char **Args)
     
     for(s64 Index = 0; Index < ThreadsCount; Index += 1)
     {
-        pthread_join(Threads[Index].Handle, &Threads[Index].Result);
+        Ret = pthread_join(Threads[Index].Handle, &Threads[Index].Result);
+        Assert(Ret == 0);
     }
 }
 

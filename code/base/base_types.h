@@ -61,8 +61,8 @@ struct range_s64
 typedef struct str8 str8;
 struct str8
 {
-    umm Size;
     u8 *Data;
+    umm Size;
 };
 raddbg_type_view(str8, no_addr(array((char *)Data, Size)));
 #define S8Lit(String) (str8){.Data = (u8 *)(String), .Size = (sizeof((String)) - 1)}

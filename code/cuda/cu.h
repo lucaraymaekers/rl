@@ -4,9 +4,7 @@
 #define CU_H
 
 #include <cuda_runtime.h>
-
-#define CU_UPDATE_AND_RENDER(Name) void Name(thread_context *Context, arena *CPUArena, arena *GPUArena, u8 *HostPixels, s32 Width, s32 Height, s32 BytesPerPixel, s32 Pitch)
-typedef CU_UPDATE_AND_RENDER(CU_update_and_render);
+#include "platform.h"
 
 #define CU_device __device__
 #define CU_host   __host__
@@ -16,21 +14,13 @@ typedef CU_UPDATE_AND_RENDER(CU_update_and_render);
 #define CU_dynamic_shared extern __shared__
 #define CU_cluster __cluster_dims__
 
-#if AOC_INTERNAL
-#else
-# if defined(Assert)
-#  undef Assert
-# endif
-# define Assert(Expression)
-#endif
-
-#if AOC_INTERNAL
+#if RL_INTERNAL
 # define GPU_Assert(Expression) if(!(Expression)) { *(int *)0 = 0; }
 #else
 # define GPU_Assert(Expression)
 #endif
 
-#if AOC_INTERNAL
+#if RL_INTERNAL
 # define CU_Check(Expression) { CU_Check_((Expression), __FILE__, __LINE__); }
 #else
 # define CU_Check(Expression) Expression

@@ -41,7 +41,7 @@ CU_Compile()
  printf '[%s compile]\n' "$Compiler"
 
  Flags="$Flags
- -I$ScriptDirectory -DOS_LINUX=1 -DAOC_INTERNAL=1
+ -I$ScriptDirectory -DOS_LINUX=1
  -gencode arch=compute_60,code=sm_60
  -gencode arch=compute_50,code=sm_50
  "
@@ -51,6 +51,7 @@ CU_Compile()
  -diag-suppress 2464
  -diag-suppress 177
  -diag-suppress 550
+ -diag-suppress 114
  -Wno-deprecated-gpu-targets
  -Xcompiler -Wall
  -Xcompiler -Wextra
@@ -67,7 +68,7 @@ CU_Compile()
  -Xcompiler -Wno-unused-function
  -Xcompiler -Wno-missing-field-initializers
  "
- DebugFlags="-g -G"
+ DebugFlags="-g -G -DRL_INTERNAL=1"
  ReleaseFlags="-O3"
 
  [ "$debug"   = 1 ] && Flags="$Flags $DebugFlags"
@@ -96,7 +97,7 @@ C_Compile()
  CommonWarningFlags="-Wall -Wextra -Wconversion -Wdouble-promotion -Wno-sign-conversion -Wno-sign-compare -Wno-double-promotion -Wno-unused-but-set-variable -Wno-unused-variable -Wno-write-strings -Wno-pointer-arith -Wno-unused-parameter -Wno-unused-function -Wno-missing-field-initializers"
  LinkerFlags=""
 
- DebugFlags="-g -ggdb -g3 -DAOC_INTERNAL=1"
+ DebugFlags="-g -ggdb -g3 -DRL_INTERNAL=1"
  ReleaseFlags="-O3"
 
  ClangFlags="-fdiagnostics-absolute-paths -ftime-trace
@@ -135,28 +136,11 @@ then
  CU_Compile $(Strip ./lib/cuda-samples/deviceQueryDrv.cpp) -lcuda
  CU_Compile $(Strip ./lib/cuda-samples/topologyQuery.cu)
 fi
-# [ "$cuda" = 1 ] && CU_Compile $(Strip ./cuda/sphere.cu)
 
-
-true && CU_Compile $(Strip ./cuda/platform.cpp) "-lX11"
-if true
+if [ "$cuda" = 1 ]
 then
- Flags="
-
-  -Wno-deprecated-gpu-targets
-  -diag-suppress 2464
-  -gencode arch=compute_50,code=sm_50
-  -g -G  
-
-  -DOS_LINUX=1
-  -I$ScriptDirectory
-  --compiler-options '-fPIC' 
-  --shared 
-  -o $Build/sphere.so
-  ./cuda/sphere.cu
- "
- printf '%s\n' ./cuda/sphere.cu
- nvcc $Flags
+ CU_Compile ./cuda/sphere.cu sphere.so "--compiler-options '-fPIC' --shared" 
+ CU_Compile $(Strip ./cuda/platform.cpp) "-lX11"
 fi
 
 if [ "$DidWork" = 0 ]

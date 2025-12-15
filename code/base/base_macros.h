@@ -29,6 +29,7 @@ _Pragma("GCC diagnostic push") \
 _Pragma("GCC diagnostic ignored \"-Wall\"") \
 _Pragma("GCC diagnostic ignored \"-Wextra\"") \
 _Pragma("GCC diagnostic ignored \"-Wconversion\"") \
+_Pragma("GCC diagnostic ignored \"-Wfloat-conversion\"") \
 _Pragma("GCC diagnostic ignored \"-Wsign-conversion\"") \
 _Pragma("GCC diagnostic ignored \"-Wsign-compare\"") \
 _Pragma("GCC diagnostic ignored \"-Wdouble-promotion\"") \
@@ -56,13 +57,19 @@ _Pragma("clang diagnostic ignored \"-Weverything\"")
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 
-#define Assert(Expression) if(!(Expression)) { __asm__ volatile("int3"); }
-#define DebugBreak     do { Assert(0); } while(0)
-#define DebugBreakOnce do { local_persist b32 X = false; Assert(X); X = true; } while(0)
-#define NullExpression { int X = 0; }
+#if RL_INTERNAL
+# define Assert(Expression) do { if(!(Expression)) { __asm__ volatile("int3"); } } while(0)
+#else
+# define Assert(Expression)
+#endif
 
-#define Minimum(A, B) (((A) < (B)) ? (A) : (B))
-#define Maximum(A, B) (((A) > (B)) ? (A) : (B))
+#define DebugBreak     do { Assert(0); } while(0)
+#define DebugBreakOnce { local_persist b32 X = false; Assert(X); X = true; }
+#define NullExpression do { int X = 0; } while(0)
+
+#define Minimum(A, B) do { (((A) < (B)) ? (A) : (B))) } while(0)
+#define Maximum(A, B) do { (((A) > (B)) ? (A) : (B)))  } while(0)
+#define Swap(A, B)    do { typeof(A) temp = (typeof(A))A; A = B; B = temp; } while(0)
 
 #define EachIndex(Index, Count) s64 Index = 0; Index < (Count); Index += 1
 
