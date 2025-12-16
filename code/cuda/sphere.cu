@@ -162,6 +162,17 @@ RandomDegree(random_series *Series, f32 Center, f32 Radius, f32 MaxAllowed)
 }
 #endif
 
+internal point *
+NewPoints(app_state *App, u32 Count)
+{
+    point *Points = App->Points + App->PointsCount;
+    Assert(App->PointsCount + Count < App->MaxPointsCount);
+    App->PointsCount += Count;
+    
+    return Points;
+}
+#define NewPoint(App) NewPoints(App, 1)
+
 internal CU_kernel void
 GeneratePoints(random_series Series, point *Out, umm Count)
 {
@@ -304,7 +315,7 @@ DrawButton(u8 *DevicePixels, app_offscreen_buffer *Buffer,
     dim3 grid((Width  + block.x - 1) / block.x,
               (Height + block.y - 1) / block.y);
     DrawRoundedRectangle<<<grid, block>>>(ButtonPixels, Buffer->BytesPerPixel, Buffer->Pitch, Width, Height, Radius, Color);
-    CU_Check(cudaGetLastError());
+    CU_GetLastError();
     
     return Pressed;
 }
@@ -313,45 +324,37 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
 {
     ThreadContextSelect(Context);
     
-    u8 *DevicePixels = PushArray(GPUArena, u8, Buffer->Pitch*Buffer->Height);
+    u8 *DevicePixels = PushArray(GPUFrameArena, u8, Buffer->Pitch*Buffer->Height);
     
     if(!App->Initialized)
     {
-        point Points[] =
-        {
-            {0, 0},
-            {85, -170},
-            {-85,0},
-            {0,175},
-            {0,-175},
-            {85,0},
-        };
-        u32 PointsCount = ArrayCount(Points);
-        
-        App->Arena = ArenaAlloc();
-        
-        App->Points = PushArray(App->Arena, point, PointsCount);
-        for(EachIndex(Idx, PointsCount))
-        {
-            App->Points[Idx] = Points[Idx];
-        }
-        App->PointsCount = PointsCount;
-        
         InitFont(&App->Font, "./data/font.ttf");
-        
-        App->GenerateAmount = 10;
         
         App->Series.Multiplier = PCG_DEFAULT_MULTIPLIER_64;
         App->Series.Increment  = PCG_DEFAULT_INCREMENT_64;
         RandomSeed(&App->Series, 0);
         
+        // Init points
+        {
+            App->GenerateAmount = 10;
+            
+            App->MaxPointsCount = (u32)((App->PermanentGPUArena->Size - 1) /sizeof(point));
+            App->Points = PushArray(App->PermanentGPUArena, point, App->MaxPointsCount);
+            
+            u32 PointsCount = 10;
+            point *Points = NewPoints(App, PointsCount);
+            GeneratePoints<<<1, PointsCount>>>(App->Series, Points, PointsCount);
+            CU_GetLastError();
+            CU_DeviceSynchronize();
+            RandomLeap(&App->Series, PointsCount);
+            App->PointsCount = PointsCount;
+            
+            CU_MemoryCopy(App->Points, Points, PointsCount*sizeof(point), cudaMemcpyHostToDevice);
+        }
+        
+        
         App->Initialized = true;
     }
-    
-    point *DevicePoints = PushArray(GPUArena, point, App->PointsCount);
-    CU_Check(cudaMemcpy(DevicePoints, App->Points, 
-                        App->PointsCount*sizeof(point),
-                        cudaMemcpyHostToDevice));
     
     // Render
     {
@@ -367,14 +370,10 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
                 s32 BlockSize = 32;
                 s32 BlocksCount = GenerateAmount/BlockSize + 1;
                 
-                point *DevicePoints = PushArray(GPUArena, point, GenerateAmount);
-                GeneratePoints<<<BlocksCount, BlockSize>>>(App->Series, DevicePoints, GenerateAmount);
-                CU_Check(cudaGetLastError());
+                point *Points = NewPoints(App, GenerateAmount);
+                GeneratePoints<<<BlocksCount, BlockSize>>>(App->Series, Points, GenerateAmount);
+                CU_GetLastError();
                 
-                point *HostPoints = PushArray(App->Arena, point, GenerateAmount);
-                CU_Check(cudaMemcpy(HostPoints, DevicePoints, sizeof(point)*GenerateAmount, cudaMemcpyDeviceToHost));
-                
-                App->PointsCount += GenerateAmount;
                 RandomLeap(&App->Series, GenerateAmount);
             }
             
@@ -383,7 +382,6 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
             Pressed = DrawButton(DevicePixels, Buffer, Input, 10, Y, 100, 30, 10.0f);
             if(Pressed)
             {
-                App->Arena->Pos -= App->PointsCount*sizeof(point);
                 App->PointsCount = 0;
             }
             
@@ -430,7 +428,7 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
         
         FillRectangle<<<BlocksCount, BlockSize>>>(MapPixels, Buffer->BytesPerPixel, Buffer->Pitch,  
                                                   MapWidth, MapHeight, ColorBackground);
-        CU_Check(cudaGetLastError());
+        CU_GetLastError();
         
         if(App->PointsCount)
         {            
@@ -438,12 +436,12 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
             s32 BlocksCount = App->PointsCount/BlockSize + 1;
             
             RenderPoints<<<BlocksCount, BlockSize>>>(MapPixels, Buffer->Pitch, Buffer->BytesPerPixel, MapWidth, MapHeight, 
-                                                     DevicePoints, App->PointsCount, *Input);
-            CU_Check(cudaGetLastError());
+                                                     App->Points, App->PointsCount, *Input);
+            CU_GetLastError();
         }
         
-        CU_Check(cudaDeviceSynchronize());
-        CU_Check(cudaMemcpy(Buffer->Pixels, DevicePixels, Buffer->Pitch*Buffer->Height, cudaMemcpyDeviceToHost));
+        CU_DeviceSynchronize();
+        CU_MemoryCopy(Buffer->Pixels, DevicePixels, Buffer->Pitch*Buffer->Height, cudaMemcpyDeviceToHost);
         
         // Show cursor
         {
@@ -465,9 +463,8 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
                     s32 pX = Input->MouseX;
                     s32 pY = Input->MouseY;
                     
-                    point *Point = App->Points + App->PointsCount;
-                    App->PointsCount += 1;
-                    PushStruct(App->Arena, point);
+                    point *GPUPoint = NewPoint(App);
+                    point *Point = PushStruct(CPUFrameArena, point);
                     
                     pX -= MapXOffset;
                     pY -= MapYOffset;
@@ -478,6 +475,7 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
                     
                     Point->Lon = ((f32)pX / (f32)MapWidth) * 360.0f - 180.0f;
                     Point->Lat = Phi * 180.0f / (f32)M_PI;
+                    CU_MemoryCopy(GPUPoint, Point, sizeof(point), cudaMemcpyHostToDevice);
                 }
             }
         }
@@ -500,12 +498,15 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
             Y += 40.0f;
             DrawText(Buffer, &App->Font, HeightPx, S8Lit("=10"), v2{48.0f, Y}, ColorButtonText, false);
             
-            Y = 30.0f;
-            DrawTextFormat(CPUArena, Buffer, &App->Font, 140.0f, Y, ColorBackground, "Points: %d", App->PointsCount); 
+            Y = 30.0f + 2.0f*14.0f;
+            DrawTextFormat(CPUFrameArena, Buffer, &App->Font, 140.0f, Y, ColorBackground, "Points: %d", App->PointsCount); 
             Y += 14.0f;
-            DrawTextFormat(CPUArena, Buffer, &App->Font, 140.0f, Y, ColorBackground, "Memory: %.2fKB", (f64)App->Arena->Pos/1024.0); 
+            DrawTextFormat(CPUFrameArena, Buffer, &App->Font, 140.0f, Y, ColorBackground, "Memory: %.2fMB", (f64)App->PermanentGPUArena->Pos/1024.0/1024.0); 
             Y += 14.0f;
-            DrawTextFormat(CPUArena, Buffer, &App->Font, 140.0f, Y, ColorBackground, "Generate size: %d", App->GenerateAmount); 
+            DrawTextFormat(CPUFrameArena, Buffer, &App->Font, 140.0f, Y, ColorBackground, "  Used: %.4fKB", (f64)(App->PointsCount*sizeof(point))/1024.0); 
+            
+            Y += 14.0f;
+            DrawTextFormat(CPUFrameArena, Buffer, &App->Font, 140.0f, Y, ColorBackground, "Generate: %d", App->GenerateAmount); 
             
         }
         

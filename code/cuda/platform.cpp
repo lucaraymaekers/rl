@@ -423,19 +423,22 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
 {
     if(LaneIndex() == 0)
     {
-        arena *CPUArena = GetScratch();
+        DebugBreak;
+        arena *PermanentCPUArena = ArenaAlloc(.Size = Gigabytes(3));
+        arena *PermanentGPUArena = CU_ArenaAlloc(PermanentCPUArena, .Size = Megabytes(500));
+        
+        arena *CPUFrameArena = ArenaAlloc();
         
         app_offscreen_buffer Buffer = {};
         Buffer.Width = 1920/2;
         Buffer.Height = 1080/2;
         Buffer.BytesPerPixel = 4;
         Buffer.Pitch = Buffer.BytesPerPixel*Buffer.Width;
-        Buffer.Pixels = PushArray(CPUArena, u8, Buffer.Pitch*Buffer.Height);
+        Buffer.Pixels = PushArray(PermanentCPUArena, u8, Buffer.Pitch*Buffer.Height);
         
-        CU_Check(cudaSetDevice(0));
         cudaDeviceProp Prop;
-        CU_Check(cudaGetDeviceProperties(&Prop, 0));
-        arena *GPUArena = CU_ArenaAlloc(CPUArena);
+        CU_GetDeviceProperties(&Prop, 0);
+        arena *GPUFrameArena = CU_ArenaAlloc(PermanentCPUArena);
         
         linux_x11_context LinuxContext = LinuxInitX11(&Buffer);
         
@@ -443,6 +446,8 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         update_and_render *UpdateAndRender = 0;
         
         app_state AppState = {};
+        AppState.PermanentGPUArena = PermanentGPUArena;
+        AppState.PermanentCPUArena = PermanentCPUArena;
         
         app_input Input[2] = {};
         app_input *NewInput = &Input[0];
@@ -456,8 +461,8 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         GlobalRunning = true;
         while(GlobalRunning)
         {
-            umm CPUBackPos = BeginScratch(CPUArena);
-            umm GPUBackPos = BeginScratch(GPUArena);
+            umm CPUBackPos = BeginScratch(CPUFrameArena);
+            umm GPUBackPos = BeginScratch(GPUFrameArena);
             
             // Prepare  Input
             { 
@@ -506,7 +511,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                            (NewInput->Buttons[PlatformButton_Right ].EndedDown ? 'x' : 'o')); 
 #endif
             
-            UpdateAndRender(ThreadContext, &AppState, CPUArena, GPUArena, &Buffer, NewInput);
+            UpdateAndRender(ThreadContext, &AppState, CPUFrameArena, GPUFrameArena, &Buffer, NewInput);
             
             // Sleep
             {            
@@ -562,7 +567,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                     }
                     
                     f32 FPS = Minimum(1000.0f/LastMSPerFrame, GameUpdateHz);
-                    DrawTextFormat(CPUArena, &Buffer, &AppState.Font, 140.0f, 30.0f+3.0f*14.0f, 0xFF13171F, 
+                    DrawTextFormat(CPUFrameArena, &Buffer, &AppState.Font, 140.0f, 30.0f+0.0f*14.0f, 0xFF13171F, 
                                    "%.2fms/f %.0fFPS", (f64)LastMSPerFrame, (f64)FPS);
                 }
                 
@@ -577,8 +582,8 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
             FlipWallClock = LinuxGetWallClock();
             
-            EndScratch(CPUArena, CPUBackPos);
-            EndScratch(GPUArena, GPUBackPos);
+            EndScratch(CPUFrameArena, CPUBackPos);
+            EndScratch(GPUFrameArena, GPUBackPos);
         }
     }
     

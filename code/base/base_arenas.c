@@ -1,15 +1,20 @@
-arena *ArenaAlloc(void)
+
+arena *ArenaAlloc_(arena_alloc_params Params)
 {
-    umm DefaultSize = Megabytes(64);
-    
     arena *Arena = 0;
     
-    void *Base = OS_Allocate(DefaultSize);
+    umm Size = Params.DefaultSize;
+    if(Params.Size)
+    {
+        Size = Params.Size;
+    }
+    
+    void *Base = OS_Allocate(Size);
     
     Arena = (arena *)Base;
     Arena->Base = Base;
     Arena->Pos = sizeof(arena);
-    Arena->Size = DefaultSize;
+    Arena->Size = Size;
     
     return Arena;
 }

@@ -92,12 +92,14 @@ struct app_state
 {
     point *Points;
     u32 PointsCount;
+    u32 MaxPointsCount;
+    
+    arena *PermanentCPUArena;
+    arena *PermanentGPUArena;
     
     s32 GenerateAmount;
     
     app_font Font;
-    
-    arena *Arena;
     
     random_series Series;
     
@@ -105,7 +107,7 @@ struct app_state
 };
 
 //~ Functions
-#define UPDATE_AND_RENDER(Name) void Name(thread_context *Context, app_state *App, arena *CPUArena, arena *GPUArena, app_offscreen_buffer *Buffer, app_input *Input)
+#define UPDATE_AND_RENDER(Name) void Name(thread_context *Context, app_state *App, arena *CPUFrameArena, arena *GPUFrameArena, app_offscreen_buffer *Buffer, app_input *Input)
 typedef UPDATE_AND_RENDER(update_and_render);
 
 

@@ -147,6 +147,6 @@ if [ "$DidWork" = 0 ]
 then
  printf 'ERROR: No valid build target provided.\n'
  printf 'Usage: %s <samples/cuda/hash>\n' "$0"
+else
+ printf 'Done.\n' # 4coder bug
 fi
-
-
