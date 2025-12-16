@@ -179,15 +179,34 @@ GeneratePoints(random_series Series, point *Out, umm Count)
     s32 Idx = blockDim.x*blockIdx.x + threadIdx.x;
     if(Idx < Count)
     {
-        point Point = {0};
+        point *Point = Out + Idx;
         
         RandomLeap(&Series, Idx);
         
-        Point.Lat = RandomBetween(&Series, -90.0f, 90.0f);
-        Point.Lon = RandomBetween(&Series, -180.0f, 180.0f);;
-        
-        Out[Idx] = Point;
+        Point->Lat = RandomBetween(&Series, -90.0f, 90.0f);
+        Point->Lon = RandomBetween(&Series, -180.0f, 180.0f);;
     }
+}
+
+internal void
+CreatePoints(app_state *App, b32 Sync)
+{
+    s32 Count = App->GenerateAmount;
+    
+    point *Points = NewPoints(App, Count);
+    
+    s32 BlockSize = 32;
+    s32 BlocksCount = Count/BlockSize + 1;
+    
+    GeneratePoints<<<BlocksCount, BlockSize>>>(App->Series, Points, Count);
+    CU_GetLastError();
+    
+    if(Sync)
+    {
+        CU_DeviceSynchronize();
+    }
+    
+    RandomLeap(&App->Series, Count);
 }
 
 //- Rendering 
@@ -336,22 +355,12 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
         
         // Init points
         {
-            App->GenerateAmount = 10;
-            
+            App->GenerateAmount = 10000000;
             App->MaxPointsCount = (u32)((App->PermanentGPUArena->Size - 1) /sizeof(point));
             App->Points = PushArray(App->PermanentGPUArena, point, App->MaxPointsCount);
             
-            u32 PointsCount = 10;
-            point *Points = NewPoints(App, PointsCount);
-            GeneratePoints<<<1, PointsCount>>>(App->Series, Points, PointsCount);
-            CU_GetLastError();
-            CU_DeviceSynchronize();
-            RandomLeap(&App->Series, PointsCount);
-            App->PointsCount = PointsCount;
-            
-            CU_MemoryCopy(App->Points, Points, PointsCount*sizeof(point), cudaMemcpyHostToDevice);
+            CreatePoints(App, true);
         }
-        
         
         App->Initialized = true;
     }
@@ -366,15 +375,7 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
             Pressed = DrawButton(DevicePixels, Buffer, Input, 10, Y, 100, 30, 10.0f);
             if(Pressed)
             {
-                s32 GenerateAmount = App->GenerateAmount;
-                s32 BlockSize = 32;
-                s32 BlocksCount = GenerateAmount/BlockSize + 1;
-                
-                point *Points = NewPoints(App, GenerateAmount);
-                GeneratePoints<<<BlocksCount, BlockSize>>>(App->Series, Points, GenerateAmount);
-                CU_GetLastError();
-                
-                RandomLeap(&App->Series, GenerateAmount);
+                CreatePoints(App, false);
             }
             
             // Clear

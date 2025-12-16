@@ -27,6 +27,7 @@ struct linux_x11_context
     GC DefaultGC;
     XIC InputContext;
     Atom WM_DELETE_WINDOW;
+				b32 Initialized;
 };
 
 UPDATE_AND_RENDER(UpdateAndRenderStub)
@@ -189,6 +190,7 @@ linux_x11_context LinuxInitX11(app_offscreen_buffer *Buffer)
                 XRet = XSetWMProtocols(Result.DisplayHandle, Result.WindowHandle, 
                                        &Result.WM_DELETE_WINDOW, 1);
                 Assert(XRet);
+																Result.Initialized = true;
                 
             }
         }
@@ -201,6 +203,8 @@ linux_x11_context LinuxInitX11(app_offscreen_buffer *Buffer)
 internal void 
 LinuxProcessPendingMessages(linux_x11_context *Linux, app_input *Input, app_offscreen_buffer *Buffer)
 {
+	if(Linux->Initialized)
+	{
     XEvent WindowEvent = {};
     while(XPending(Linux->DisplayHandle) > 0)
     {
@@ -405,27 +409,30 @@ LinuxProcessPendingMessages(linux_x11_context *Linux, app_input *Input, app_offs
             }
         }
     }
-    
+	}
 }
 
 internal void
 LinuxUpdateImage(linux_x11_context *Linux, app_offscreen_buffer *Buffer)
 {
+	if(Linux->Initialized)
+	{
     XPutImage(Linux->DisplayHandle,
               Linux->WindowHandle, 
               Linux->DefaultGC, 
               Linux->WindowImage, 0, 0, 0, 0, 
               Buffer->Width, 
               Buffer->Height);
+	}
 }
 
 C_LINKAGE ENTRY_POINT(EntryPoint)
 {
     if(LaneIndex() == 0)
     {
-        DebugBreak;
+					DebugBreak;
         arena *PermanentCPUArena = ArenaAlloc(.Size = Gigabytes(3));
-        arena *PermanentGPUArena = CU_ArenaAlloc(PermanentCPUArena, .Size = Megabytes(500));
+        arena *PermanentGPUArena = CU_ArenaAlloc(PermanentCPUArena, .Size = Megabytes(100));
         
         arena *CPUFrameArena = ArenaAlloc();
         
@@ -441,6 +448,10 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         arena *GPUFrameArena = CU_ArenaAlloc(PermanentCPUArena);
         
         linux_x11_context LinuxContext = LinuxInitX11(&Buffer);
+								if(!LinuxContext.Initialized)
+								{
+									ErrorLog("Could not initialize X11, running in headless mode.\n");
+								}
         
         void *Library = 0;
         update_and_render *UpdateAndRender = 0;

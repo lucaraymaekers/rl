@@ -42,8 +42,11 @@ CU_Compile()
 
  Flags="$Flags
  -I$ScriptDirectory -DOS_LINUX=1
+	--threads 2
  -gencode arch=compute_60,code=sm_60
  -gencode arch=compute_50,code=sm_50
+	--resource-usage
+	-time $Build/${Out}_time.txt
  "
 
  WarningFlags="
@@ -68,7 +71,11 @@ CU_Compile()
  -Xcompiler -Wno-unused-function
  -Xcompiler -Wno-missing-field-initializers
  "
- DebugFlags="-g -G -DRL_INTERNAL=1"
+ DebugFlags="
+	-g
+	-lineinfo -src-in-ptx
+	-DRL_INTERNAL=1
+	"
  ReleaseFlags="-O3"
 
  [ "$debug"   = 1 ] && Flags="$Flags $DebugFlags"
@@ -79,7 +86,7 @@ CU_Compile()
  printf '%s\n' "$Source"
  Source="$(readlink -f "$Source")"
  
- $Compiler $Flags "$Source" -o "$Build"/"$Out"
+ $Compiler $Flags "$Source" -o "$Build"/"$Out" 2> "$Build/${Out}_compile.txt"
 
  DidWork=1
 }
@@ -114,7 +121,7 @@ C_Compile()
  Flags="$Flags $LinkerFlags"
 
  printf '%s\n' "$Source"
- $Compiler $Flags "$(readlink -f "$Source")" -o "$Build"/"$Out"
+ $Compiler $Flags "$(readlink -f "$Source")" -o "$Build"/"$Out" > "$Build/${Out}_compile.txt"
 
  DidWork=1
 }
@@ -125,7 +132,7 @@ Strip()
  Out="${1%.*}"
  Out="${Out##*/}"
 
- printf '%s %s' "$Source" "$Out"
+ printf '%s %s' "$Source" "$Out" 
 }
 
 [ "$hash" = 1 ] && C_Compile $(Strip ./hash/hash.c)
