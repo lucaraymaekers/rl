@@ -42,9 +42,9 @@ CU_Compile()
 
  Flags="$Flags
  -I$ScriptDirectory -DOS_LINUX=1
-	--threads 2
- -gencode arch=compute_60,code=sm_60
- -gencode arch=compute_50,code=sm_50
+	--threads 0
+    --use_fast_math
+    -gencode arch=compute_60,code=sm_60
 	--resource-usage
 	-time $Build/${Out}_time.txt
  "
@@ -86,7 +86,7 @@ CU_Compile()
  printf '%s\n' "$Source"
  Source="$(readlink -f "$Source")"
  
- $Compiler $Flags "$Source" -o "$Build"/"$Out" 2> "$Build/${Out}_compile.txt"
+ $Compiler $Flags "$Source" -o "$Build"/"$Out"
 
  DidWork=1
 }
@@ -146,7 +146,7 @@ fi
 
 if [ "$cuda" = 1 ]
 then
- CU_Compile ./cuda/sphere.cu sphere.so "--compiler-options '-fPIC' --shared" 
+ CU_Compile ./cuda/app.cu app.so "--compiler-options '-fPIC' --shared" 
  CU_Compile $(Strip ./cuda/platform.cpp) "-lX11"
 fi
 

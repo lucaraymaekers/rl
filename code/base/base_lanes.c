@@ -9,34 +9,40 @@ thread_static thread_context *ThreadContext;
 #define LaneCount() (ThreadContext->LaneCount)
 #define LaneIndex() (ThreadContext->LaneIndex)
 
-void ThreadContextSelect(thread_context *Context)
+internal void 
+ThreadContextSelect(thread_context *Context)
 {
     ThreadContext = Context;
 }
 
-arena *GetScratch()
+internal arena *
+GetScratch()
 {
     arena *Arena = ThreadContext->Arena; 
     return Arena;
 }
 
-umm BeginScratch(arena *Arena)
+internal umm 
+BeginScratch(arena *Arena)
 {
     umm Result = Arena->Pos;
     return Result;
 }
 
-void EndScratch(arena *Arena, umm BackPos)
+internal void 
+EndScratch(arena *Arena, umm BackPos)
 {
     Arena->Pos = BackPos;
 }
 
-void LaneIceberg(void)
+internal void 
+LaneIceberg(void)
 {
     OS_BarrierWait(ThreadContext->Barrier);
 }
 
-void LaneSyncU64(u64 *Value, s64 SourceIndex)
+internal void 
+LaneSyncU64(u64 *Value, s64 SourceIndex)
 {
     if(LaneIndex() == SourceIndex)
     {
@@ -51,7 +57,8 @@ void LaneSyncU64(u64 *Value, s64 SourceIndex)
     LaneIceberg();
 }
 
-range_s64 LaneRange(s64 ValuesCount)
+internal range_s64 
+LaneRange(s64 ValuesCount)
 {
     range_s64 Result = {0};
     
@@ -70,7 +77,8 @@ range_s64 LaneRange(s64 ValuesCount)
     return Result;
 }
 
-void ThreadInit(thread_context *ContextToSelect)
+internal void 
+ThreadInit(thread_context *ContextToSelect)
 {
     ThreadContextSelect(ContextToSelect);
     

@@ -21,8 +21,8 @@ struct arena_alloc_params
 #define ArenaAllocDefaultSize Megabytes(64)
 
 #define ArenaAlloc(...) ArenaAlloc_((arena_alloc_params){.DefaultSize = ArenaAllocDefaultSize, ##__VA_ARGS__})
-arena *ArenaAlloc_(arena_alloc_params Params);
-void *ArenaPush(arena *Arena, umm Size);
+internal arena *ArenaAlloc_(arena_alloc_params Params);
+internal void  *ArenaPush(arena *Arena, umm Size);
 
 #define PushArray(Arena, type, Count) (type *)ArenaPush((Arena), (Count)*(sizeof(type)))
 #define PushStruct(Arena, type) PushArray(Arena, type, 1)

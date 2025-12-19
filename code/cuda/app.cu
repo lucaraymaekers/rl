@@ -1,3 +1,5 @@
+#include <cuda_runtime_api.h>
+#include <cuda.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 
@@ -26,21 +28,21 @@ POP_WARNINGS
 #define ColorMapBackground 0xFF3A4151
 
 //~ GPU land
-CU_host_shared  f32
+internal CU_host_shared  f32
 Squared(f32 A)
 {
     f32 Result = A * A;
     return Result;
 }
 
-CU_device  f32
+internal CU_device  f32
 DegreesToRadians(f32 Degrees)
 {
     f32 Result = Degrees*3.14159265359f/180.0f;
     return Result;
 }
 
-CU_host_shared  f32
+internal CU_host_shared  f32
 DistanceInsideRoundedRectangle(s32 X, s32 Y, f32 Width, f32 Height, f32 Radius)
 {
     f32 Result = false;
@@ -66,10 +68,10 @@ internal CU_host_shared void
 RandomStep(random_series *Series)
 {
     u64 NewState = (Series->State) * Series->Multiplier + Series->Increment;
-	Series->State = NewState;
+    Series->State = NewState;
 }
 
-internal void
+internal CU_host_shared void
 RandomSeed(random_series *Series, u64 Seed)
 {
     Series->State = 0;
@@ -227,8 +229,10 @@ FillRectangle(u8 *Pixels, s32 BytesPerPixel, s32 Pitch,
     }
 }
 
+CU_device f32 clamp(f32 X, f32 A, f32 B) { return max(A, min(B, X)); }
+
 internal CU_kernel void
-RenderPoints(u8 *Pixels, s32 Pitch, s32 BytesPerPixel, s32 Width, s32 Height, 
+RenderPoints(u32 *Pixels, s32 Pitch, s32 BytesPerPixel, s32 Width, s32 Height, 
              point *Points, s32 PointsCount, app_input Input) 
 {
     s32 PointRadius = 1;
@@ -239,19 +243,23 @@ RenderPoints(u8 *Pixels, s32 Pitch, s32 BytesPerPixel, s32 Width, s32 Height,
         f32 Lat = Points[Idx].Lat;
         f32 Lon = Points[Idx].Lon;
         
-        // Clamp, because the mercator projection will produce infinite Y
-        if(Lat > 85.0f) Lat = 85.0f;
-        if(Lat < -85.0f) Lat = -85.0f;
+        // The mercator projection will produce infinite Y otherwise
+        Lat = clamp(Lat, -85.0f, 85.0f);
         
         // https://en.wikipedia.org/wiki/Mercator_projection#Mathematics
         f32 Phi = DegreesToRadians(Lat);
-        f32 MercY = logf(tanf(M_PI_4 + Phi/2.0f));
+        f32 MercY = logf(tanf((f32)M_PI_4 + Phi/2.0f));
         
         // In pixels
         f32 X = ((Lon + 180.0f)/360.0f)*Width;
-        f32 Y = ((1.0f - MercY/M_PI)/2.0f)*Height;
+        f32 Y = ((1.0f - MercY/(f32)M_PI)/2.0f)*Height;
+#if 0
         s32 pX = roundf(X);
         s32 pY = roundf(Y);
+#else
+        s32 pX = (s32)(X + 0.5f); 
+        s32 pY = (s32)(Y + 0.5f);
+#endif
         
         for(s32 dY = -PointRadius; dY <= PointRadius; dY += 1)
         {
@@ -264,7 +272,8 @@ RenderPoints(u8 *Pixels, s32 Pitch, s32 BytesPerPixel, s32 Width, s32 Height,
                     if((SX >= 0 && SX < Width) && 
                        (SY >= 0 && SY < Height)) 
                     {
-                        u32 *Pixel = (u32 *)(Pixels + SY*Pitch + SX*BytesPerPixel);
+                        u32 *Pixel = (u32 *)((u8 *)Pixels + SY*Pitch + SX*BytesPerPixel);
+                        
                         *Pixel = ColorPoint;
                     }
                 }
@@ -344,6 +353,8 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
     ThreadContextSelect(Context);
     
     u8 *DevicePixels = PushArray(GPUFrameArena, u8, Buffer->Pitch*Buffer->Height);
+    umm DevicePixelsAddr = (umm)DevicePixels;
+    Assert(DevicePixelsAddr % 4 == 0);
     
     if(!App->Initialized)
     {
@@ -355,7 +366,7 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
         
         // Init points
         {
-            App->GenerateAmount = 10000000;
+            App->GenerateAmount = 10;
             App->MaxPointsCount = (u32)((App->PermanentGPUArena->Size - 1) /sizeof(point));
             App->Points = PushArray(App->PermanentGPUArena, point, App->MaxPointsCount);
             
@@ -433,10 +444,10 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
         
         if(App->PointsCount)
         {            
-            s32 BlockSize = 32;
+            s32 BlockSize = 256;
             s32 BlocksCount = App->PointsCount/BlockSize + 1;
             
-            RenderPoints<<<BlocksCount, BlockSize>>>(MapPixels, Buffer->Pitch, Buffer->BytesPerPixel, MapWidth, MapHeight, 
+            RenderPoints<<<BlocksCount, BlockSize>>>((u32 *)MapPixels, Buffer->Pitch, Buffer->BytesPerPixel, MapWidth, MapHeight, 
                                                      App->Points, App->PointsCount, *Input);
             CU_GetLastError();
         }

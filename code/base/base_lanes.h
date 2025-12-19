@@ -17,6 +17,6 @@ struct thread_context
     arena *Arena;
 };
 
-void ThreadInit(thread_context *ContextToSelect);
+internal void ThreadInit(thread_context *ContextToSelect);
 
 #endif //LANES_H

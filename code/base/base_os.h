@@ -22,12 +22,14 @@ extern "C"
 ENTRY_POINT(EntryPoint);
 
 #define ErrorLog(Format, ...) OS_PrintFormat(ERROR_FMT Format, ERROR_ARG, ##__VA_ARGS__) 
+#define Log(Format, ...)      OS_PrintFormat(Format, ##__VA_ARGS__)
 
-str8 OS_ReadEntireFileIntoMemory(char *FileName);
-void OS_PrintFormat(char *Format, ...);
-void OS_BarrierWait(barrier Barrier);
-void OS_SetThreadName(str8 ThreadName);
-void* OS_Allocate(umm Size);
-void OS_BarrierWait(barrier Barrier);
+internal str8  OS_ReadEntireFileIntoMemory(char *FileName);
+internal b32   OS_WriteEntireFile(char *FileName, str8 File);
+internal void  OS_PrintFormat(char *Format, ...);
+internal void  OS_BarrierWait(barrier Barrier);
+internal void  OS_SetThreadName(str8 ThreadName);
+internal void *OS_Allocate(umm Size);
+internal void  OS_BarrierWait(barrier Barrier);
 
 #endif //OS_H

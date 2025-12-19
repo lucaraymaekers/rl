@@ -13,12 +13,13 @@ struct tile
 };
 
 typedef struct tile_map tile_map;
-struct tile_map
+internal struct tile_map
 {
     tile Tiles[4096];
 };
 
-tile *GetTile(tile_map *Map, s32 X, s32 Y, s32 Z, arena *Arena)
+internal tile *
+GetTile(tile_map *Map, s32 X, s32 Y, s32 Z, arena *Arena)
 {
     tile *Tile = 0;
     
@@ -80,7 +81,8 @@ tile *GetTile(tile_map *Map, s32 X, s32 Y, s32 Z, arena *Arena)
     return Tile;
 }
 
-void GetTileAndPrint(tile_map *TileMap, s32 X, s32 Y, s32 Z, arena *Arena)
+internal void 
+GetTileAndPrint(tile_map *TileMap, s32 X, s32 Y, s32 Z, arena *Arena)
 {
     tile *Tile = GetTile(TileMap, X, Y, Z, Arena);
     OS_PrintFormat("[%ld] %d,%d,%d: %p\n", LaneIndex(), Tile->X, Tile->Y, Tile->Z, Tile);

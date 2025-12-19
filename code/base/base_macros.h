@@ -57,8 +57,19 @@ _Pragma("clang diagnostic ignored \"-Weverything\"")
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 
+
+//~ Globals
+static int GlobalDebuggerIsAttached;
+
 #if RL_INTERNAL
-# define Assert(Expression) do { if(!(Expression)) { __asm__ volatile("int3"); } } while(0)
+# define Assert(Expression) \
+do {\
+if(!(Expression))\
+{\
+if(GlobalDebuggerIsAttached) {__asm__ volatile("int3"); }\
+else                         { ErrorLog("Hit assertion\n"); }\
+}\
+} while(0)
 #else
 # define Assert(Expression)
 #endif
@@ -71,7 +82,7 @@ _Pragma("clang diagnostic ignored \"-Weverything\"")
 #define Maximum(A, B) (((A) > (B)) ? (A) : (B))
 #define Swap(A, B)    do { typeof(A) temp = (typeof(A))A; A = B; B = temp; } while(0)
 
-#define EachIndex(Index, Count) s64 Index = 0; Index < (Count); Index += 1
+#define EachIndex(Index, Count) umm Index = 0; Index < (Count); Index += 1
 
 #if OS_WINDOWS
 # include <windows.h>

@@ -1,13 +1,15 @@
 global u8 LogBuffer[Kilobytes(64)];
 
-void OS_PrintFormat(char *Format, ...)
+internal void 
+OS_PrintFormat(char *Format, ...)
 {
     va_list Args;
     va_start(Args, Format);
     vprintf(Format, Args);
 }
 
-str8 OS_ReadEntireFileIntoMemory(char *FileName)
+internal str8 
+OS_ReadEntireFileIntoMemory(char *FileName)
 {
     str8 Result = {};
     

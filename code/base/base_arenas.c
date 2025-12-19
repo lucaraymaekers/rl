@@ -1,5 +1,6 @@
 
-arena *ArenaAlloc_(arena_alloc_params Params)
+internal arena *
+ArenaAlloc_(arena_alloc_params Params)
 {
     arena *Arena = 0;
     
@@ -19,7 +20,8 @@ arena *ArenaAlloc_(arena_alloc_params Params)
     return Arena;
 }
 
-void *ArenaPush(arena *Arena, umm Size)
+internal void *
+ArenaPush(arena *Arena, umm Size)
 {
     void *Result = (u8 *)Arena->Base + Arena->Pos;
     
@@ -29,7 +31,8 @@ void *ArenaPush(arena *Arena, umm Size)
     return Result;
 }
 
-void *ArenaPushAligned(arena *Arena, umm Size, umm Alignment)
+internal void *
+ArenaPushAligned(arena *Arena, umm Size, umm Alignment)
 {
     void *Result = 0;
     
@@ -44,7 +47,8 @@ void *ArenaPushAligned(arena *Arena, umm Size, umm Alignment)
     return Result;
 }
 
-umm PadSize(umm Size, umm Padding)
+internal umm 
+PadSize(umm Size, umm Padding)
 {
     umm Result = Size;
     

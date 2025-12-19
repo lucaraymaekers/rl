@@ -3,16 +3,17 @@
 #include <string.h>
 
 // Linux
-#include <pthread.h>
-#include <linux/prctl.h> 
-#include <sys/prctl.h>
-
 #include <errno.h>
-#include <unistd.h>
-#include <fcntl.h>
+#include <linux/prctl.h> 
+#include <linux/limits.h>
+#include <sys/prctl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/sysinfo.h>
+// UNIX & POSIX
+#include <pthread.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 PUSH_WARNINGS
 #define STB_SPRINTF_IMPLEMENTATION
@@ -21,9 +22,9 @@ POP_WARNINGS
 
 #include "base_arenas.h"
 
+//~ Types
 typedef void *pthread_entry_point_func(void *);
 
-//~ Types
 typedef struct os_thread os_thread;
 struct os_thread
 {
@@ -37,7 +38,8 @@ struct os_thread
 //~ Syscalls
 
 //- Debug utilities 
-void AssertErrno(b32 Expression)
+internal void 
+AssertErrno(b32 Expression)
 {
     if(!Expression)
     {
@@ -47,7 +49,8 @@ void AssertErrno(b32 Expression)
     }
 }
 
-str8 OS_ReadEntireFileIntoMemory(char *FileName)
+internal str8 
+OS_ReadEntireFileIntoMemory(char *FileName)
 {
     str8 Result = {};
     
@@ -70,7 +73,34 @@ str8 OS_ReadEntireFileIntoMemory(char *FileName)
     return Result;
 }
 
-void OS_PrintFormat(char *Format, ...)
+internal b32
+OS_WriteEntireFile(char *FileName, str8 File)
+{
+    b32 Result = false;
+    
+    int Handle = open(FileName, O_WRONLY|O_CREAT|O_TRUNC, 0600);
+    if(Handle != -1)
+    {
+        smm BytesWritten = write(Handle, File.Data, File.Size);
+        if(BytesWritten == (smm)File.Size)
+        {
+            Result = true;
+        }
+        else
+        {
+            ErrorLog("Could not write to '%s'.\n", FileName);
+        }
+    }
+    else
+    {
+        ErrorLog("Could not open '%s' for writing.\n", FileName);
+    }
+    
+    return Result;
+}
+
+internal void 
+OS_PrintFormat(char *Format, ...)
 {
     va_list Args;
     va_start(Args, Format);
@@ -87,21 +117,24 @@ void OS_PrintFormat(char *Format, ...)
 }
 
 //~ Threads
-void OS_BarrierWait(barrier Barrier)
+internal void 
+OS_BarrierWait(barrier Barrier)
 {
     s32 Ret = pthread_barrier_wait((pthread_barrier_t *)Barrier);
     
     AssertErrno(Ret == 0 || Ret == PTHREAD_BARRIER_SERIAL_THREAD);
 }
 
-void OS_SetThreadName(str8 ThreadName)
+internal void 
+OS_SetThreadName(str8 ThreadName)
 {
     Assert(ThreadName.Size <= 16 -1);
     s32 Ret = prctl(PR_SET_NAME, ThreadName.Data);
     AssertErrno(Ret != -1);
 }
 
-void* OS_Allocate(umm Size)
+internal void *
+OS_Allocate(umm Size)
 {
     void *Result = mmap(0, Size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
     return Result;
@@ -113,9 +146,72 @@ ENTRY_POINT(ThreadInitEntryPoint)
     return EntryPoint(Params);
 }
 
-//~ Entrypoint
-void LinuxMainEntryPoint(int ArgsCount, char **Args)
+#define ARG_MAX       131072	/* # bytes of args + environ for exec() */
+
+// Misc
+internal b32
+LinuxDebuggerIsAttached()
 {
+    b32 IsAttached = false;
+    
+    s32 TracerPid = 0;
+    
+    u8 FileBuffer[ARG_MAX] = {0};
+    int File = open("/proc/self/status", O_RDONLY);
+    smm Size = read(File, FileBuffer, sizeof(FileBuffer));
+    str8 Out = {};
+    Out.Size = (umm)Size;
+    Out.Data = FileBuffer;
+    
+    str8 Search = S8Lit("TracerPid:\t");
+    
+    for(EachIndex(Idx, Out.Size))
+    {
+        b32 Match = true;
+        
+        for(EachIndex(SearchIdx, Search.Size))
+        {
+            if(Idx < Out.Size &&
+               (Search.Data[SearchIdx] != Out.Data[Idx + SearchIdx]))
+            {
+                Match = false;
+                break;
+            }
+        }
+        
+        if(Match)
+        {
+            Idx += Search.Size;
+            
+            while(Idx < Out.Size && 
+                  (Out.Data[Idx] >= '0' && Out.Data[Idx] <= '9') &&
+                  Out.Data[Idx] != '\n')
+            {
+                s32 Digit = (s32)(Out.Data[Idx] - '0');
+                TracerPid = 10*TracerPid + Digit;
+                Idx += 1;
+            }
+            
+            break;
+        }
+        
+        while(Idx < Out.Size && Out.Data[Idx] != '\n') Idx += 1;
+    }
+    
+    IsAttached = !!TracerPid;
+    
+    return IsAttached;
+}
+
+
+
+//~ Entrypoint
+internal void 
+LinuxMainEntryPoint(int ArgsCount, char **Args)
+{
+    GlobalDebuggerIsAttached = LinuxDebuggerIsAttached();
+    
+    
     arena *Arena = ArenaAlloc();
     
     char ThreadName[16] = "Main";

@@ -70,7 +70,7 @@ inline b32 WasPressed(app_button_state State)
 }
 
 //~ App logic
-struct point
+struct __align__(8) point
 {
     f32 Lat;
     f32 Lon;
