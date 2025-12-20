@@ -16,7 +16,8 @@
 #define ColorBackground    0xFF13171F
 #define ColorMapBackground 0xFF3A4151
 
-C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
+C_LINKAGE 
+UPDATE_AND_RENDER(UpdateAndRender)
 {
     ThreadContextSelect(Context);
     
@@ -25,11 +26,14 @@ C_LINKAGE UPDATE_AND_RENDER(UpdateAndRender)
         App->Initialized = true;
     }
     
+    for(EachIndex(Y, Buffer->Height))
+    {
+        for(EachIndex(X, Buffer->Width))
+        {
+            u32 *Pixel = (u32 *)(Buffer->Pixels + Y*Buffer->Pitch + X*Buffer->BytesPerPixel);
+            *Pixel = ColorMapBackground;
+        }
+        
+    }
     
-}
-
-ENTRY_POINT(EntryPoint)
-{
-    // STUB
-    return 0;
 }

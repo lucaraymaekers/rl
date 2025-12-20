@@ -130,12 +130,6 @@ OS_Allocate(umm Size)
     return Result;
 }
 
-ENTRY_POINT(ThreadInitEntryPoint)
-{
-    ThreadInit(&Params->Context);
-    return EntryPoint(Params);
-}
-
 #define ARG_MAX       131072	/* # bytes of args + environ for exec() */
 
 // Misc
@@ -193,7 +187,15 @@ LinuxDebuggerIsAttached()
     return IsAttached;
 }
 
-
+ENTRY_POINT(ThreadInitEntryPoint)
+{
+    ThreadInit(&Params->Context);
+#ifndef BASE_NO_ENTRYPOINT
+    return EntryPoint(Params);
+#else
+    return 0;
+#endif
+}
 
 //~ Entrypoint
 internal void 

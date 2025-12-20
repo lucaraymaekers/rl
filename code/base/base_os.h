@@ -19,6 +19,7 @@ typedef ENTRY_POINT(entry_point_func);
 #if __cplusplus
 extern "C"
 #endif
+
 ENTRY_POINT(EntryPoint);
 
 #define ErrorLog(Format, ...) OS_PrintFormat(ERROR_FMT Format "\n", ERROR_ARG, ##__VA_ARGS__) 

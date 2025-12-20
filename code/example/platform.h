@@ -81,4 +81,28 @@ struct app_state
 #define UPDATE_AND_RENDER(Name) void Name(thread_context *Context, app_state *App, arena *CPUFrameArena, app_offscreen_buffer *Buffer, app_input *Input)
 typedef UPDATE_AND_RENDER(update_and_render);
 
+
+//~ API
+typedef umm P_context;
+
+internal s64       P_GetWallClock(void);
+internal P_context P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running);
+internal void      P_UpdateImage(P_context Context, app_offscreen_buffer *Buffer);
+internal void      P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buffer, b32 *Running);
+
+//- Helpers 
+internal inline f32
+P_SecondsElapsed(s64 Start, s64 End)
+{
+    f32 Result = ((f32)(End - Start)/1000000000.0f);
+    return Result;
+}
+
+internal inline f32
+P_MSElapsed(s64 Start, s64 End)
+{
+    f32 Result = ((f32)(End - Start)/1000000.0f);
+    return Result;
+}
+
 #endif //PLATFORM_H

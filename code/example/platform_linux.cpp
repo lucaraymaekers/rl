@@ -85,112 +85,103 @@ LinuxProcessKeyPress(app_button_state *ButtonState, b32 IsDown)
     }
 }
 
-typedef struct timespec timespec;
-
-internal timespec 
-LinuxGetWallClock()
-{
-    timespec Counter = {};
-    clock_gettime(CLOCK_MONOTONIC, &Counter);
-    return Counter;
-}
-
+//~ Platform API
 internal s64 
-LinuxGetNSecondsElapsed(timespec Start, timespec End)
+P_GetWallClock()
 {
     s64 Result = 0;
-    Result = ((s64)End.tv_sec*1000000000 + (s64)End.tv_nsec) - ((s64)Start.tv_sec*1000000000 + (s64)Start.tv_nsec);
-    return Result;
-}
-
-internal f32 
-LinuxGetSecondsElapsed(timespec Start, timespec End)
-{
-    f32 Result = 0;
-    Result = ((f32)LinuxGetNSecondsElapsed(Start, End)/1000.0f/1000.0f/1000.0f);
+    
+    struct timespec Counter;
+    clock_gettime(CLOCK_MONOTONIC, &Counter);
+    Result = (s64)Counter.tv_sec*1000000000 + (s64)Counter.tv_nsec;
     
     return Result;
 }
 
-internal linux_x11_context 
-LinuxInitX11(app_offscreen_buffer *Buffer)
+internal P_context
+P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
 {
-    linux_x11_context Result = {};
+    P_context Result = 0;
+    
+    linux_x11_context *Context = PushStruct(Arena, linux_x11_context);
+    
+    LinuxSetSIGINT(Running);
     
     s32 XRet = 0;
     
-    Result.DisplayHandle = XOpenDisplay(0);
-    if(Result.DisplayHandle)
+    Context->DisplayHandle = XOpenDisplay(0);
+    if(Context->DisplayHandle)
     {
-        Window RootWindow = XDefaultRootWindow(Result.DisplayHandle);
-        s32 Screen = XDefaultScreen(Result.DisplayHandle);
+        Window RootWindow = XDefaultRootWindow(Context->DisplayHandle);
+        s32 Screen = XDefaultScreen(Context->DisplayHandle);
         s32 ScreenBitDepth = 24;
         XVisualInfo WindowVisualInfo = {};
-        if(XMatchVisualInfo(Result.DisplayHandle, Screen, ScreenBitDepth, TrueColor, &WindowVisualInfo))
+        if(XMatchVisualInfo(Context->DisplayHandle, Screen, ScreenBitDepth, TrueColor, &WindowVisualInfo))
         {
             XSetWindowAttributes WindowAttributes = {};
             WindowAttributes.bit_gravity = StaticGravity;
 #if HANDMADE_INTERNAL            
             WindowAttributes.background_pixel = 0xFF00FF;
 #endif
-            WindowAttributes.colormap = XCreateColormap(Result.DisplayHandle, RootWindow, WindowVisualInfo.visual, AllocNone);
+            WindowAttributes.colormap = XCreateColormap(Context->DisplayHandle, RootWindow, WindowVisualInfo.visual, AllocNone);
             WindowAttributes.event_mask = (StructureNotifyMask | 
                                            KeyPressMask | KeyReleaseMask | 
                                            ButtonPressMask | ButtonReleaseMask |
                                            EnterWindowMask | LeaveWindowMask);
             u64 WindowAttributeMask = CWBitGravity | CWBackPixel | CWColormap | CWEventMask;
             
-            Result.WindowHandle = XCreateWindow(Result.DisplayHandle, RootWindow,
-                                                0, 0,
-                                                Buffer->Width, Buffer->Height,
-                                                0,
-                                                WindowVisualInfo.depth, InputOutput,
-                                                WindowVisualInfo.visual, WindowAttributeMask, &WindowAttributes);
-            if(Result.WindowHandle)
+            Context->WindowHandle = XCreateWindow(Context->DisplayHandle, RootWindow,
+                                                  0, 0,
+                                                  Buffer->Width, Buffer->Height,
+                                                  0,
+                                                  WindowVisualInfo.depth, InputOutput,
+                                                  WindowVisualInfo.visual, WindowAttributeMask, &WindowAttributes);
+            if(Context->WindowHandle)
             {
-                XRet = XStoreName(Result.DisplayHandle, Result.WindowHandle, "Handmade Window");
+                XRet = XStoreName(Context->DisplayHandle, Context->WindowHandle, "Handmade Window");
                 
                 // NOTE(luca): If we set the MaxWidth and MaxHeigth to the same values as MinWidth and MinHeight there is a bug on dwm where it won't update the window decorations when trying to remove them.
                 // In the future we will allow resizing to any size so this does not matter that much.
 #if 0                    
-                LinuxSetSizeHint(Result.DisplayHandle, Result.WindowHandle, 0, 0, 0, 0);
+                LinuxSetSizeHint(Context->DisplayHandle, Context->WindowHandle, 0, 0, 0, 0);
 #endif
                 
                 // NOTE(luca): Tiling window managers should treat windows with the WM_TRANSIENT_FOR property as pop-up windows.  This way we ensure that we will be a floating window.  This works on my setup (dwm). 
-                XRet = XSetTransientForHint(Result.DisplayHandle, Result.WindowHandle, RootWindow);
+                XRet = XSetTransientForHint(Context->DisplayHandle, Context->WindowHandle, RootWindow);
                 
                 XClassHint ClassHint = {};
                 ClassHint.res_name = "Handmade Window";
                 ClassHint.res_class = "Handmade Window";
-                XSetClassHint(Result.DisplayHandle, Result.WindowHandle, &ClassHint);
+                XSetClassHint(Context->DisplayHandle, Context->WindowHandle, &ClassHint);
                 
                 XSetLocaleModifiers("");
                 
-                XIM InputMethod = XOpenIM(Result.DisplayHandle, 0, 0, 0);
+                XIM InputMethod = XOpenIM(Context->DisplayHandle, 0, 0, 0);
                 if(!InputMethod){
                     XSetLocaleModifiers("@im=none");
-                    InputMethod = XOpenIM(Result.DisplayHandle, 0, 0, 0);
+                    InputMethod = XOpenIM(Context->DisplayHandle, 0, 0, 0);
                 }
-                Result.InputContext = XCreateIC(InputMethod,
-                                                XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
-                                                XNClientWindow, Result.WindowHandle,
-                                                XNFocusWindow,  Result.WindowHandle,
-                                                NULL);
-                XSetICFocus(Result.InputContext);
+                Context->InputContext = XCreateIC(InputMethod,
+                                                  XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
+                                                  XNClientWindow, Context->WindowHandle,
+                                                  XNFocusWindow,  Context->WindowHandle,
+                                                  NULL);
+                XSetICFocus(Context->InputContext);
                 
                 s32 BitsPerPixel = Buffer->BytesPerPixel*8;
-                Result.WindowImage = XCreateImage(Result.DisplayHandle, WindowVisualInfo.visual, WindowVisualInfo.depth, ZPixmap, 0, (char *)Buffer->Pixels, Buffer->Width, Buffer->Height, BitsPerPixel, 0);
-                Result.DefaultGC = DefaultGC(Result.DisplayHandle, Screen);
+                Context->WindowImage = XCreateImage(Context->DisplayHandle, WindowVisualInfo.visual, WindowVisualInfo.depth, ZPixmap, 0, (char *)Buffer->Pixels, Buffer->Width, Buffer->Height, BitsPerPixel, 0);
+                Context->DefaultGC = DefaultGC(Context->DisplayHandle, Screen);
                 
-                XRet = XMapWindow(Result.DisplayHandle, Result.WindowHandle);
-                XRet = XFlush(Result.DisplayHandle);
+                XRet = XMapWindow(Context->DisplayHandle, Context->WindowHandle);
+                XRet = XFlush(Context->DisplayHandle);
                 
-                Result.WM_DELETE_WINDOW = XInternAtom(Result.DisplayHandle, "WM_DELETE_WINDOW", False);
-                XRet = XSetWMProtocols(Result.DisplayHandle, Result.WindowHandle, 
-                                       &Result.WM_DELETE_WINDOW, 1);
+                Context->WM_DELETE_WINDOW = XInternAtom(Context->DisplayHandle, "WM_DELETE_WINDOW", False);
+                XRet = XSetWMProtocols(Context->DisplayHandle, Context->WindowHandle, 
+                                       &Context->WM_DELETE_WINDOW, 1);
                 Assert(XRet);
-                Result.Initialized = true;
+                Context->Initialized = true;
                 
+                Result = (umm)Context;
             }
         }
     }
@@ -199,9 +190,11 @@ LinuxInitX11(app_offscreen_buffer *Buffer)
 }
 
 internal void 
-LinuxProcessPendingMessages(linux_x11_context *Linux, app_input *Input, app_offscreen_buffer *Buffer, b32 *Running)
+P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buffer, b32 *Running)
 {
-	if(Linux->Initialized)
+    linux_x11_context *Linux = (linux_x11_context *)Context;
+    
+	if(Linux)
 	{
         XEvent WindowEvent = {};
         while(XPending(Linux->DisplayHandle) > 0)
@@ -412,9 +405,10 @@ LinuxProcessPendingMessages(linux_x11_context *Linux, app_input *Input, app_offs
 }
 
 internal void
-LinuxUpdateImage(linux_x11_context *Linux, app_offscreen_buffer *Buffer)
+P_UpdateImage(P_context Context, app_offscreen_buffer *Buffer)
 {
-	if(Linux->Initialized)
+    linux_x11_context *Linux = (linux_x11_context *)Context;
+	if(Linux)
 	{
         XPutImage(Linux->DisplayHandle,
                   Linux->WindowHandle, 

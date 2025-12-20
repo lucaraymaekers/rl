@@ -23,8 +23,8 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         Buffer.Pitch = Buffer.BytesPerPixel*Buffer.Width;
         Buffer.Pixels = PushArray(PermanentCPUArena, u8, Buffer.Pitch*Buffer.Height);
         
-        linux_x11_context LinuxContext = LinuxInitX11(&Buffer);
-        if(!LinuxContext.Initialized)
+        P_context PlatformContext = P_ContextInit(PermanentCPUArena, &Buffer, Running);
+        if(!PlatformContext)
         {
             ErrorLog("Could not initialize X11, running in headless mode.");
         }
@@ -39,12 +39,10 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         app_input *NewInput = &Input[0];
         app_input *OldInput = &Input[1];
         
-        timespec LastCounter = LinuxGetWallClock();
-        timespec FlipWallClock = LinuxGetWallClock();
+        s64 LastCounter = P_GetWallClock();
+        s64 FlipWallClock = LastCounter;
         f32 GameUpdateHz = 60.0f;
         f32 TargetSecondsPerFrame = 1.0f/GameUpdateHz; 
-        
-        LinuxSetSIGINT(Running);
         
         while(*Running)
         {
@@ -85,7 +83,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 Assert(UpdateAndRender);
             }
             
-            LinuxProcessPendingMessages(&LinuxContext, NewInput, &Buffer, Running);
+            P_ProcessMessages(PlatformContext, NewInput, &Buffer, Running);
             
 #if 1            
             NewInput->Text.Buffer[NewInput->Text.Count].Codepoint = 0;
@@ -101,10 +99,10 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
             // Sleep
             {            
-                timespec WorkCounter = LinuxGetWallClock();
-                f32 WorkMSPerFrame = (f32)((f32)LinuxGetNSecondsElapsed(LastCounter, WorkCounter)/1000000.f);
+                s64 WorkCounter = P_GetWallClock();
+                f32 WorkMSPerFrame = P_MSElapsed(LastCounter, WorkCounter);
                 
-                f32 SecondsElapsedForFrame = LinuxGetSecondsElapsed(LastCounter, WorkCounter);
+                f32 SecondsElapsedForFrame = P_SecondsElapsed(LastCounter, WorkCounter);
                 if(SecondsElapsedForFrame < TargetSecondsPerFrame)
                 {
                     f32 SleepUS = ((TargetSecondsPerFrame - 0.001f - SecondsElapsedForFrame)*1000000.0f);
@@ -118,7 +116,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                         // TODO(luca): Logging
                     }
                     
-                    f32 TestSecondsElapsedForFrame = (f32)(LinuxGetSecondsElapsed(LastCounter, LinuxGetWallClock()));
+                    f32 TestSecondsElapsedForFrame = P_SecondsElapsed(LastCounter, P_GetWallClock());
                     if(TestSecondsElapsedForFrame < TargetSecondsPerFrame)
                     {
                         // TODO(luca): Log missed sleep
@@ -127,7 +125,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                     // NOTE(luca): This is to help against sleep granularity.
                     while(SecondsElapsedForFrame < TargetSecondsPerFrame)
                     {
-                        SecondsElapsedForFrame = LinuxGetSecondsElapsed(LastCounter, LinuxGetWallClock());
+                        SecondsElapsedForFrame = P_SecondsElapsed(LastCounter, P_GetWallClock());
                     }
                 }
                 else
@@ -135,11 +133,11 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                     // TODO(luca): Log missed frame rate!
                 }
                 
-                timespec EndCounter = LinuxGetWallClock();
+                s64 EndCounter = P_GetWallClock();
                 
                 // Print elapsed time
                 {                
-                    f32 MSPerFrame = (f32)((f32)LinuxGetNSecondsElapsed(LastCounter, EndCounter)/1000000.f);
+                    f32 MSPerFrame = P_MSElapsed(LastCounter, EndCounter);
                     
                     local_persist s32 Counter = 0;
                     s32 MaxCount = (s32)GameUpdateHz/2;
@@ -166,12 +164,11 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
             Swap(OldInput, NewInput);
             
-            LinuxUpdateImage(&LinuxContext, &Buffer);
+            P_UpdateImage(PlatformContext, &Buffer);
             
-            FlipWallClock = LinuxGetWallClock();
+            FlipWallClock = P_GetWallClock();
             
             EndScratch(CPUFrameArena, CPUBackPos);
-            
         }
     }
     

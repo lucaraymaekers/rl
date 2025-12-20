@@ -158,8 +158,8 @@ fi
 
 if [ "$example" = 1 ]
 then
- C_Compile ./example/app.cpp app.so "-fPIC --shared -lm" 
- C_Compile $(Strip ./example/platform.cpp) "-lm -lX11"
+ C_Compile ./example/app.cpp app.so "-fPIC --shared -DBASE_NO_ENTRYPOINT=1" 
+ C_Compile $(Strip ./example/platform.cpp) "-lX11"
 fi
 
 #- End
