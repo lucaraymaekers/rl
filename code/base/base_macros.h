@@ -62,14 +62,15 @@ _Pragma("clang diagnostic ignored \"-Weverything\"")
 static int GlobalDebuggerIsAttached;
 
 #if RL_INTERNAL
-# define Assert(Expression) \
+# define AssertMsg(Expression, Format, ...) \
 do {\
 if(!(Expression))\
 {\
 if(GlobalDebuggerIsAttached) {__asm__ volatile("int3"); }\
-else                         { ErrorLog("Hit assertion\n"); }\
+else                         { ErrorLog(Format, ##__VA_ARGS__); }\
 }\
 } while(0)
+# define Assert(Expression) AssertMsg(Expression, "Hit assertion")
 #else
 # define Assert(Expression)
 #endif
@@ -91,5 +92,9 @@ else                         { ErrorLog("Hit assertion\n"); }\
 # define RADDBG_MARKUP_STUBS
 #endif
 #include "lib/raddbg_markup.h"
+
+#define MemoryCopy memcpy
+#define MemorySet  memset
+#define MemoryMove memmove
 
 #endif // BASE_MACROS_H

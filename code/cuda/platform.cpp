@@ -21,7 +21,6 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
 {
     if(LaneIndex() == 0)
     {
-        DebugBreak;
         arena *PermanentCPUArena = ArenaAlloc(.Size = Gigabytes(3));
         
         b32 *Running = PushStruct(PermanentCPUArena, b32);
@@ -45,7 +44,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         linux_x11_context LinuxContext = LinuxInitX11(&Buffer);
         if(!LinuxContext.Initialized)
         {
-            ErrorLog("Could not initialize X11, running in headless mode.\n");
+            ErrorLog("Could not initialize X11, running in headless mode.");
         }
         
         void *Library = 0;
@@ -91,7 +90,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 if(!Library)
                 {
                     char *Error = dlerror();
-                    ErrorLog("%s\n", Error);
+                    ErrorLog("%s", Error);
                     UpdateAndRender = UpdateAndRenderStub;
                 }
                 else
@@ -99,7 +98,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                     UpdateAndRender = (update_and_render *)dlsym(Library, "UpdateAndRender");
                     if(!UpdateAndRender)
                     {
-                        ErrorLog("Could not find UpdateAndRender.\n");
+                        ErrorLog("Could not find UpdateAndRender.");
                         UpdateAndRender = UpdateAndRenderStub;
                     }
                 }

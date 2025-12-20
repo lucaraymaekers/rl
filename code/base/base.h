@@ -4,15 +4,14 @@
 #define BASE_H
 
 #include "base_macros.h"
-
 #include "base_types.h"
 
 #include "base_arenas.h"
 #include "base_lanes.h"
 #include "base_os.h"
 
-#include "base_os.c"
-#include "base_lanes.c"
 #include "base_arenas.c"
+#include "base_lanes.c"
+#include "base_os.c"
 
 #endif // BASE_H

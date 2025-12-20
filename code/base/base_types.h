@@ -58,6 +58,7 @@ struct range_s64
     s64 Max;
 };
 
+//~ Strings
 typedef struct str8 str8;
 struct str8
 {

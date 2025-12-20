@@ -21,7 +21,7 @@ extern "C"
 #endif
 ENTRY_POINT(EntryPoint);
 
-#define ErrorLog(Format, ...) OS_PrintFormat(ERROR_FMT Format, ERROR_ARG, ##__VA_ARGS__) 
+#define ErrorLog(Format, ...) OS_PrintFormat(ERROR_FMT Format "\n", ERROR_ARG, ##__VA_ARGS__) 
 #define Log(Format, ...)      OS_PrintFormat(Format, ##__VA_ARGS__)
 
 internal str8  OS_ReadEntireFileIntoMemory(char *FileName);

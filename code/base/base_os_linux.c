@@ -88,12 +88,12 @@ OS_WriteEntireFile(char *FileName, str8 File)
         }
         else
         {
-            ErrorLog("Could not write to '%s'.\n", FileName);
+            ErrorLog("Could not write to '%s'.", FileName);
         }
     }
     else
     {
-        ErrorLog("Could not open '%s' for writing.\n", FileName);
+        ErrorLog("Could not open '%s' for writing.", FileName);
     }
     
     return Result;

@@ -1,6 +1,5 @@
 #include "base_arenas.h"
 
-#define MemoryCopy memcpy
 #define AtomicAddEvalU64(Pointer, Value) \
 (__sync_fetch_and_add((Pointer), (Value), __ATOMIC_SEQ_CST) + (Value));
 

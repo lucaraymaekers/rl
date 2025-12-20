@@ -49,12 +49,6 @@ CU_Check_(cudaError_t Code, char *FileName, s32 Line)
     {
         OS_PrintFormat("%s(%d): ERROR: %s\n", FileName, Line, cudaGetErrorString(Code));
         DebugBreak;
-#if 0
-        if(Abort) 
-        {
-            exit(Code);
-        }
-#endif
     }
 }
 
