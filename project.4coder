@@ -41,6 +41,7 @@ commands =
     {
         .out = "*compilation*", .save_dirty_files = true,
         .linux = "sh ./code/build.sh",
+        .win = ".\\code\\build.bat",
     },
 };
 

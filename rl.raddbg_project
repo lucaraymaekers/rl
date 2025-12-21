@@ -1,0 +1,18 @@
+// raddbg 0.9.24 project file
+
+recent_file: path: "code/base/base_os_windows.c"
+recent_file: path: "code/example/platform.cpp"
+recent_file: path: "code/base/base_arenas.c"
+recent_file: path: "D:/a/_work/1/s/src/vctools/crt/vcstartup/src/utility/utility_desktop.cpp"
+recent_file: path: "D:/a/_work/1/s/src/vctools/crt/vcstartup/src/startup/exe_common.inl"
+debug_info:
+{
+  path: "C:/Users/zebra/Projects/rl/build/platform.pdb"
+  timestamp: 66201673846286
+}
+target:
+{
+  executable: "build/platform.exe"
+  working_directory: build
+  enabled: 1
+}

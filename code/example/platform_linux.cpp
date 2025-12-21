@@ -7,6 +7,7 @@
 #include <X11/cursorfont.h>
 #include <signal.h>
 #include <execinfo.h>
+#include <dlfcn.h>
 
 struct linux_x11_context
 {

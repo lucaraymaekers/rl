@@ -1,12 +1,15 @@
-#include <dlfcn.h>
-
 #include "base/base.h"
 #include "platform.h"
-#include "platform_linux.cpp"
+
+#if OS_LINUX
+# include "platform_linux.cpp"
+#elif OS_WINDOWS
+# include "platform_windows.cpp"
+#endif
 
 UPDATE_AND_RENDER(UpdateAndRenderStub) {}
 
-#define AppLog(Format, ...) do {if(*GlobalRunning)Log(Format, ##__VA_ARGS__);} while(0)
+#define AppLog(Format, ...) do {if(*Running)Log(Format, ##__VA_ARGS__);} while(0)
 
 C_LINKAGE ENTRY_POINT(EntryPoint)
 {
@@ -28,11 +31,11 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         P_context PlatformContext = P_ContextInit(PermanentCPUArena, &Buffer, Running);
         if(!PlatformContext)
         {
-            ErrorLog("Could not initialize X11, running in headless mode.");
+            ErrorLog("Could not initialize graphical context, running in headless mode.");
         }
         
         void *Library = 0;
-        update_and_render *UpdateAndRender = 0;
+        update_and_render *UpdateAndRender = UpdateAndRenderStub;
         
         app_state AppState = {};
         AppState.PermanentCPUArena = PermanentCPUArena;
@@ -60,6 +63,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 }
             }
             
+#if 0            
             // Load application code
             {            
                 if(Library)
@@ -84,6 +88,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 }
                 Assert(UpdateAndRender);
             }
+#endif
             
             P_ProcessMessages(PlatformContext, NewInput, &Buffer, Running);
             
@@ -111,7 +116,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                     if(SleepUS > 0)
                     {
                         // TODO(luca): Intrinsic
-                        usleep((u32)SleepUS);
+                        OS_Sleep((u32)SleepUS);
                     }
                     else
                     {

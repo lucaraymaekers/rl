@@ -127,7 +127,7 @@ OS_Allocate(umm Size)
 }
 
 internal s64 
-OS_GetWallClock()
+OS_GetWallClock(void)
 {
     s64 Result = 0;
     
@@ -136,6 +136,12 @@ OS_GetWallClock()
     Result = (s64)Counter.tv_sec*1000000000 + (s64)Counter.tv_nsec;
     
     return Result;
+}
+
+internal void
+OS_Sleep(u32 MicroSeconds)
+{
+    usleep(MicroSeconds);
 }
 
 global_variable thread_context *DEBUGThreadContext; 

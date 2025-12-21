@@ -1,4 +1,3 @@
-
 internal arena *
 ArenaAlloc_(arena_alloc_params Params)
 {

@@ -13,7 +13,12 @@
 #define internal static 
 #define local_persist static 
 #define global_variable static
-#define thread_static __thread
+
+#ifdef COMPILER_MSVC
+# define thread_static __declspec(thread)
+#else
+# define thread_static __thread
+#endif
 
 #define Pi32 3.14159265359f
 
@@ -68,7 +73,7 @@ struct str8
 raddbg_type_view(str8, no_addr(array((char *)Data, Size)));
 #define S8(String)                   (str8){.Data = (u8 *)(String), .Size = (sizeof((String)) - 1)}
 #define S8CString(String)            (str8){.Data = (u8 *)(String), .Size = StringLength((char *)(String))}
-#define S8From(String, Start)        (str8){.Data = (u8 *)((String).Data + (Start)), .Size = ((String).Size - (Start))}
+#define S8From(String, Start)        str8{.Data = (u8 *)((String).Data + (Start)), .Size = ((String).Size - (Start))}
 #define S8To(String, End)            (str8){.Data = (u8 *)(String).Data, .Size = (End)}
 #define S8FromTo(String, Start, End) (str8){.Data = (u8 *)(String).Data + (Start), .Size = ((End) - (Start))}
 #define S8Fmt "%.*s" 

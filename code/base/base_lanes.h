@@ -5,13 +5,15 @@
 
 typedef u64 barrier;
 
+typedef umm thread_handle;
+
 typedef struct thread_context thread_context;
 struct thread_context
 {
     s64 LaneCount;
     s64 LaneIndex;
     
-    pthread_t Handle;
+    thread_handle Handle;
     
     u64 *SharedStorage;
     barrier Barrier;
