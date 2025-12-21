@@ -1,5 +1,16 @@
 global_variable s64 GlobalPerfCountFrequency;
 
+//- Helpers 
+
+internal inline u32
+SafeTruncateU64(u64 Value)
+{
+    Assert(Value <= (u64)~0);
+    u32 Result = (u32)Value;
+    return(Result);
+}
+
+//- API 
 internal str8 
 OS_ReadEntireFileIntoMemory(char *FileName)
 {
@@ -24,7 +35,7 @@ OS_ReadEntireFileIntoMemory(char *FileName)
                 }
                 else
                 {                    
-                    // TODO(casey): Logging
+                    ErrorLog("Could not read correctly from '%s'.\n", FileName);
                     
                     if(Result.Data)
                     {
@@ -36,12 +47,12 @@ OS_ReadEntireFileIntoMemory(char *FileName)
             }
             else
             {
-                // TODO(casey): Logging
+                ErrorLog("Could not allocate memory for reading '%s'.\n", FileName);
             }
         }
         else
         {
-            // TODO(casey): Logging
+            ErrorLog("Could not open '%s' for reading.\n");
         }
     }
     
@@ -49,11 +60,32 @@ OS_ReadEntireFileIntoMemory(char *FileName)
 }
 
 internal b32
-OS_WriteEntireFile()
+OS_WriteEntireFile(char *FileName, str8 File)
 {
-    b32 Result = 0;
+    b32 Result = false;
     
-    return 0;
+    HANDLE FileHandle = CreateFileA(FileName, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        DWORD BytesWritten;
+        if(WriteFile(FileHandle, File.Data, (DWORD)File.Size, &BytesWritten, 0))
+        {
+            // NOTE(casey): File read successfully
+            Result = (BytesWritten == File.Size);
+        }
+        else
+        {
+            ErrorLog("Could not write to '%s'.", FileName);
+        }
+        
+        CloseHandle(FileHandle);
+    }
+    else
+    {
+        ErrorLog("Could not open '%s' for writing.", FileName);
+    }
+    
+    return Result;
 }
 
 internal void 
@@ -81,17 +113,6 @@ OS_SetThreadName(str8 ThreadName)
 {
     
 }
-
-
-internal inline u32
-SafeTruncateU64(u64 Value)
-{
-    // TODO(casey): Defines for maximum values
-    Assert(Value <= 0xFFFFFFFF);
-    u32 Result = (u32)Value;
-    return(Result);
-}
-
 
 internal void *
 OS_Allocate(umm Size)
