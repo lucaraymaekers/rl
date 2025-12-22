@@ -3,6 +3,8 @@
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
+#include "ex_random.h"
+
 struct app_offscreen_buffer
 {
     s32 Width;
@@ -73,12 +75,20 @@ inline b32 WasPressed(app_button_state State)
 typedef struct app_state app_state;
 struct app_state
 {
-    arena *PermanentCPUArena;
+    arena *PermanentArena;
+    random_series Series;
+    
+    arena *NumbersArena;
+    
+#if RL_INTERNAL
+    b32 DebuggerAttached;
+#endif
+    
     b32 Initialized;
 };
 
 //~ Functions
-#define UPDATE_AND_RENDER(Name) void Name(thread_context *Context, app_state *App, arena *CPUFrameArena, app_offscreen_buffer *Buffer, app_input *Input)
+#define UPDATE_AND_RENDER(Name) void Name(thread_context *Context, app_state *App, arena *FrameArena, app_offscreen_buffer *Buffer, app_input *Input)
 typedef UPDATE_AND_RENDER(update_and_render);
 
 

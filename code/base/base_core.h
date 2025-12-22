@@ -1,0 +1,274 @@
+#ifndef BASE_MACROS_H
+#define BASE_MACROS_H
+
+// detect OS
+#if __linux__
+# define OS_LINUX 1
+#elif _WIN32
+# define OS_WINDOWS 1
+#endif
+
+// Detect compiler
+#if __clang__
+# define COMPILER_CLANG 1
+#elif _MSC_VER
+# define COMPILER_MSVC 1
+#elif __GNUC__
+# define COMPILER_GNU 1
+#endif
+
+// Detect language
+#ifdef __cplusplus
+# define LANG_CPP 1
+#else
+# define LANG_C 1
+#endif
+
+// Zero undefined
+#ifndef OS_LINUX
+# define OS_LINUX 0
+#endif
+#ifndef OS_WINDOWS
+# define OS_WINDOWS 0
+#endif
+#ifndef COMPILER_MSVC
+# define COMPILER_MSVC 0
+#endif
+#ifndef COMPILER_LLVM
+# define COMPILER_LLVM 0
+#endif
+#ifndef COMPILER_GNU
+# define COMPILER_GNU 0
+#endif
+#ifndef LANG_C
+# define LANG_C 0
+#endif
+#ifndef LANG_CPP
+# define LANG_CPP 0
+#endif
+
+//~ OS
+#include <stdint.h>
+#include <stddef.h>
+
+#if OS_WINDOWS
+# include <windows.h>
+# define RADDBG_MARKUP_IMPLEMENTATION
+# define ssize_t SSIZE_T
+#elif OS_LINUX
+# include <sys/types.h>
+# define RADDBG_MARKUP_STUBS
+#endif
+#include "lib/raddbg_markup.h"
+
+//~ Macros
+#define ERROR_FMT "%s(%d): ERROR: "
+#define ERROR_ARG __FILE__, __LINE__
+
+//- 
+#define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
+#define CeilIntegerDiv(A,B) (((A) + (B) - 1)/(B))
+
+//- 
+#define Stringify_(S) #S
+#define Stringify(S) Stringify_(S)
+
+#define Glue_(A,B) A##B
+#define Glue(A,B) Glue_(A,B)
+
+//- 
+#define Min(A, B) (((A) < (B)) ? (A) : (B))
+#define Max(A, B) (((A) > (B)) ? (A) : (B))
+#define ClampTop(A, X) Min(A,X)
+#define ClampBot(X, B) Max(X,B)
+#define Clamp(A, X, B) (((X) < (A)) ? (A) : ((X) > (B)) ? (B) : (X))
+
+#ifndef LANG_C
+# define Swap(A, B) do { typeof(A) temp = (typeof(A))A; A = B; B = temp; } while(0)
+#else
+template <typename type> inline void 
+Swap(type& A, type& B) { type T = A; A = B; B = T; }
+#endif
+
+//- 
+#define NullExpression ((void)0)
+
+#if OS_LINUX
+# define Trap() __builtin_trap();
+#elif OS_WINDOWS
+# define Trap() __debugbreak();
+#endif
+
+#if OS_LINUX
+# define DebugBreak do { if(GlobalDebuggerIsAttached) __asm__ volatile("int3"); } while(0)
+#elif OS_WINDOWS
+# define DebugBreak do { if(GlobalDebuggerIsAttached) Trap(); } while(0)
+#endif
+#define DebugBreakOnce do { local_persist b32 X = true; if(X) DebugBreak; X = false; } while(0)
+
+#if RL_INTERNAL
+# define AssertMsg(Expression, Format, ...) \
+do { if(!(Expression)) { ErrorLog(Format, ##__VA_ARGS__); Trap(); } } while(0)
+# define Assert(Expression) AssertMsg(Expression, "Hit assertion")
+#else
+# define AssertMsg(...)     NullExpression
+# define Assert(Expression) NullExpression
+#endif
+
+#define NotImplemented AssertMsg(0, "Not Implemented!")
+#define InvalidPath    AssertMsg(0, "Invalid Path!")
+#define StaticAssert(C, ID) global_variable u8 Glue(ID, __LINE__)[(C)?1:-1]
+
+//- 
+#define EachIndex(Index, Count)      (umm Index = 0; Index < (Count); Index += 1)
+#define EachElement(Index, Array)    (umm Index = 0; Index < ArrayCount(Array); Index += 1)
+#define EachInRange(Index, Range)    (umm Index = (Range).Min; Index < (Range).Max; Index += 1)
+#define EachNode(Index, type, First) (type *Index = First; Index != 0; Index = Index->next)
+
+#define MemoryCopy memcpy
+#define MemorySet  memset
+#define MemoryMove memmove
+
+//~ Keywords
+#define internal static 
+#define local_persist static 
+#define global_variable static
+
+#if COMPILER_MSVC
+# define thread_static __declspec(thread)
+#else
+# define thread_static __thread
+#endif
+
+#if COMPILER_MSVC || (COMPILER_CLANG && OS_WINDOWS)
+# pragma section(".rdata$", read)
+# define read_only __declspec(allocate(".rdata$"))
+#elif (COMPILER_CLANG && OS_LINUX)
+# define read_only __attribute__((section(".rodata")))
+#else
+// NOTE(rjf): I don't know of a useful way to do this in GCC land.
+// __attribute__((section(".rodata"))) looked promising, but it introduces a
+// strange warning about malformed section attributes, and it doesn't look
+// like writing to that section reliably produces access violations, strangely
+// enough. (It does on Clang)
+# define read_only
+#endif
+
+#if COMPILER_MSVC
+# define force_inline __forceinline
+#elif COMPILER_CLANG || COMPILER_GCC
+# define force_inline __attribute__((always_inline))
+#else
+# error force_inline not defined for this compiler.
+#endif
+
+#if COMPILER_MSVC
+# define no_inline __declspec(noinline)
+#elif COMPILER_CLANG || COMPILER_GCC
+# define no_inline __attribute__((noinline))
+#else
+# error no_inline not defined for this compiler.
+#endif
+
+#if LANG_CPP
+# define C_LINKAGE extern "C"
+# define C_LINKAGE_BEGIN C_LINKAGE {
+# define C_LINKAGE_END }
+#else
+# define C_LINKAGE
+# define C_LINKAGE_BEGIN
+# define C_LINKAGE_END
+#endif
+#if COMPILER_MSVC && !BUILD_DEBUG
+# define NO_OPTIMIZE_BEGIN _Pragma("optimize(\"\", off)")
+# define NO_OPTIMIZE_END _Pragma("optimize(\"\", on)")
+#elif COMPILER_CLANG && !BUILD_DEBUG
+# define NO_OPTIMIZE_BEGIN _Pragma("clang optimize off")
+# define NO_OPTIMIZE_END _Pragma("clang optimize on")
+#elif COMPILER_GCC && !BUILD_DEBUG
+# define NO_OPTIMIZE_BEGIN _Pragma("GCC push_options") _Pragma("GCC optimize(\"O0\")")
+# define NO_OPTIMIZE_END _Pragma("GCC pop_options")
+#else
+# define NO_OPTIMIZE_BEGIN
+# define NO_OPTIMIZE_END
+#endif
+
+// Push/Pop warnings
+#if COMPILER_GNU
+# define NO_WARNINGS_BEGIN \
+_Pragma("GCC diagnostic push") \
+_Pragma("GCC diagnostic ignored \"-Wall\"") \
+_Pragma("GCC diagnostic ignored \"-Wextra\"") \
+_Pragma("GCC diagnostic ignored \"-Wconversion\"") \
+_Pragma("GCC diagnostic ignored \"-Wfloat-conversion\"") \
+_Pragma("GCC diagnostic ignored \"-Wsign-conversion\"") \
+_Pragma("GCC diagnostic ignored \"-Wsign-compare\"") \
+_Pragma("GCC diagnostic ignored \"-Wdouble-promotion\"") \
+_Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+# define NO_WARNINGS_END _Pragma("GCC diagnostic pop")
+#elif COMPILER_CLANG
+# define NO_WARNINGS_BEGIN \
+_Pragma("clang diagnostic push") \
+_Pragma("clang diagnostic ignored \"-Weverything\"")
+# define NO_WARNINGS_END _Pragma("clang diagnostic pop")
+#elif COMPILER_MSVC
+# define NO_WARNINGS_BEGIN \
+__pragma(warning(push)) \
+__pragma(warning(disable: 4267 4996)) // NOTE: Add specific warning numbers to disable as needed
+# define NO_WARNINGS_END __pragma(warning(pop))
+#else
+# error "No compatible compiler found"
+#endif
+
+
+#define Pi32 3.14159265359f
+
+#define KB(n)  (((umm)(n)) << 10)
+#define MB(n)  (((umm)(n)) << 20)
+#define GB(n)  (((umm)(n)) << 30)
+#define TB(n)  (((umm)(n)) << 40)
+#define Thousand(n)   ((n)*1000)
+#define Million(n)    ((n)*1000000)
+#define Billion(n)    ((n)*1000000000)
+
+//~ Types
+typedef int8_t s8;
+typedef int16_t s16;
+typedef int32_t s32;
+typedef int64_t s64;
+typedef s32 b32;
+
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+typedef size_t umm;
+typedef ssize_t smm;
+typedef s32 rune; // utf8 codepoint
+
+typedef float f32;
+typedef double f64;
+
+#define U8Max 0xff
+#define U16Max 0xffff
+#define S32Min ((s32)0x80000000)
+#define S32Max ((s32)0x7fffffff)
+#define U32Min 0
+#define U32Max ((u32)-1)
+#define U64Max ((u64)-1)
+
+#define false 0
+#define true  1
+
+typedef struct range_s64 range_s64;
+struct range_s64
+{
+    s64 Min;
+    s64 Max;
+};
+
+//~ Globals
+global_variable b32 GlobalDebuggerIsAttached;
+
+#endif // BASE_MACROS_H

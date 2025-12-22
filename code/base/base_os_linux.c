@@ -1,6 +1,7 @@
 // Standard
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 // Linux
 #include <errno.h>
@@ -14,7 +15,9 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <fcntl.h>
-
+#include <signal.h>
+#include <execinfo.h>
+#include <dlfcn.h>
 #include "base_arenas.h"
 
 //~ Types
@@ -99,7 +102,6 @@ OS_PrintFormat(char *Format, ...)
     int Length = vsprintf((char *)LogBuffer, Format, Args);
     smm BytesWritten = write(STDOUT_FILENO, LogBuffer, Length);
     AssertErrno(BytesWritten == Length);
-    
 }
 
 //~ Threads
@@ -155,8 +157,42 @@ ENTRY_POINT(ThreadInitEntryPoint)
     EntryPoint(Params);
 #endif
     
-    LaneIceberg();
     return 0;
+}
+
+internal void
+LinuxSigHandler(int Signal, siginfo_t *Info, void *Arg)
+{
+    Log("\nSignal received: %s (%d). The process is terminating.\n", strsignal(Signal), Signal);
+    Log("Callstack:\n");
+    
+    void *IPs[4096] = {0};
+    int IPsCount = backtrace(IPs, ArrayCount(IPs));
+    
+    for EachIndex(Idx, IPsCount)
+    {
+        Dl_info Info = {0};
+        dladdr(IPs[Idx], &Info);
+        char CMD[2048];
+        snprintf(CMD, sizeof(CMD), "llvm-symbolizer --relative-address -f -e %s %lu", Info.dli_fname, (unsigned long)IPs[Idx] - (unsigned long)Info.dli_fbase);
+        FILE *Out = popen(CMD, "r");
+        if(Out)
+        {
+            char FuncName[256], FileName[256];
+            if(fgets(FuncName, sizeof(FuncName), Out) && fgets(FileName, sizeof(FileName), Out))
+            {
+                str8 Func = S8CString(FuncName);
+                if(Func.Size > 0) Func.Size -= 1;
+                str8 Module = S8SkipLastSlash(S8CString(Info.dli_fname));
+                str8 File = S8SkipLastSlash(S8CString(FileName));
+                if(File.Size > 0) File.Size -= 1;
+                Log("%lu. " S8Fmt ", " S8Fmt " " S8Fmt "\n",
+                    Idx, S8Arg(Module), S8Arg(Func), S8Arg(File));
+            }
+        }
+    }
+    
+    _exit(1);
 }
 
 internal void 
@@ -166,7 +202,7 @@ LinuxMainEntryPoint(int ArgsCount, char **Args)
     {
         s32 TracerPid = 0;
         
-        u8 FileBuffer[Kilobytes(2)] = {0};
+        u8 FileBuffer[KB(2)] = {0};
         int File = open("/proc/self/status", O_RDONLY);
         smm Size = read(File, FileBuffer, sizeof(FileBuffer));
         str8 Out = {FileBuffer, (umm)Size};
@@ -176,7 +212,7 @@ LinuxMainEntryPoint(int ArgsCount, char **Args)
         for EachIndex(Idx, Out.Size)
         {
             str8 Search = S8From(Out, Idx);
-            if(StringMatch(TracerPidKey, Search, true))
+            if(S8Match(TracerPidKey, Search, true))
             {
                 Idx += TracerPidKey.Size;
                 
@@ -196,6 +232,19 @@ LinuxMainEntryPoint(int ArgsCount, char **Args)
         }
         
         GlobalDebuggerIsAttached = !!TracerPid;
+    }
+    
+    // Install signal handler for crash with callstacks
+    {
+        struct sigaction Handler = { .sa_sigaction = LinuxSigHandler, .sa_flags = SA_SIGINFO, };
+        sigfillset(&Handler.sa_mask);
+        sigaction(SIGILL, &Handler, NULL);
+        sigaction(SIGTRAP, &Handler, NULL);
+        sigaction(SIGABRT, &Handler, NULL);
+        sigaction(SIGFPE, &Handler, NULL);
+        sigaction(SIGBUS, &Handler, NULL);
+        sigaction(SIGSEGV, &Handler, NULL);
+        sigaction(SIGQUIT, &Handler, NULL);
     }
     
     arena *Arena = ArenaAlloc();

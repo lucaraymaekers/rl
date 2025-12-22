@@ -1,10 +1,10 @@
 #include "base/base.h"
-#include "platform.h"
+#include "ex_platform.h"
 
 #if OS_LINUX
-# include "platform_linux.cpp"
+# include "ex_platform_linux.cpp"
 #elif OS_WINDOWS
-# include "platform_windows.cpp"
+# include "ex_platform_windows.cpp"
 #endif
 
 UPDATE_AND_RENDER(UpdateAndRenderStub) {}
@@ -15,7 +15,8 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
 {
     if(LaneIndex() == 0)
     {
-        arena *PermanentCPUArena = ArenaAlloc(.Size = Gigabytes(3));
+        //Trap();
+        arena *PermanentCPUArena = ArenaAlloc(.Size = GB(3));
         arena *CPUFrameArena = ArenaAlloc();
         
         b32 *Running = PushStruct(PermanentCPUArena, b32);
@@ -38,7 +39,8 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         update_and_render *UpdateAndRender = UpdateAndRenderStub;
         
         app_state AppState = {};
-        AppState.PermanentCPUArena = PermanentCPUArena;
+        AppState.PermanentArena = PermanentCPUArena;
+        AppState.DebuggerAttached = GlobalDebuggerIsAttached;
         
         app_input Input[2] = {};
         app_input *NewInput = &Input[0];
@@ -48,6 +50,11 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         s64 FlipWallClock = LastCounter;
         f32 GameUpdateHz = 144.0f;
         f32 TargetSecondsPerFrame = 1.0f/GameUpdateHz; 
+        
+#if OS_LINUX        
+        char *LibraryFilePath = "./build/app.so";
+        struct timespec LastWriteTime = {};;
+#endif
         
         while(*Running)
         {
@@ -63,31 +70,43 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 }
             }
             
-#if 0            
+#if OS_LINUX      
             // Load application code
-            {            
-                if(Library)
+            {
+                struct stat LibraryFileStats = {};
+                stat(LibraryFilePath, &LibraryFileStats);
+                
+                if(LibraryFileStats.st_size && 
+                   !(LibraryFileStats.st_mtim.tv_sec == LastWriteTime.tv_sec &&
+                     LibraryFileStats.st_mtim.tv_nsec == LastWriteTime.tv_nsec))
                 {
-                    dlclose(Library);
-                }
-                Library = dlopen("./build/app.so", RTLD_NOW);
-                if(!Library)
-                {
-                    char *Error = dlerror();
-                    ErrorLog("%s", Error);
-                    UpdateAndRender = UpdateAndRenderStub;
-                }
-                else
-                {
-                    UpdateAndRender = (update_and_render *)dlsym(Library, "UpdateAndRender");
-                    if(!UpdateAndRender)
+                    if(Library)
                     {
-                        ErrorLog("Could not find UpdateAndRender.");
+                        dlclose(Library);
+                    }
+                    Log("\nLibrary reloaded.\n");
+                    
+                    Library = dlopen(LibraryFilePath, RTLD_NOW);
+                    if(!Library)
+                    {
+                        ErrorLog("%s", dlerror());
                         UpdateAndRender = UpdateAndRenderStub;
                     }
+                    else
+                    {
+                        LastWriteTime = LibraryFileStats.st_mtim;
+                        // Load code from library
+                        UpdateAndRender = (update_and_render *)dlsym(Library, "UpdateAndRender");
+                        if(!UpdateAndRender)
+                        {
+                            ErrorLog("Could not find UpdateAndRender.");
+                            UpdateAndRender = UpdateAndRenderStub;
+                        }
+                    }
                 }
-                Assert(UpdateAndRender);
             }
+            
+            Assert(UpdateAndRender);
 #endif
             
             P_ProcessMessages(PlatformContext, NewInput, &Buffer, Running);
@@ -146,6 +165,8 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 {                
                     f32 MSPerFrame = P_MSElapsed(LastCounter, EndCounter);
                     
+                    // TODO(luca): Print a recent average instead.
+                    
                     local_persist s32 Counter = 0;
                     s32 MaxCount = (s32)GameUpdateHz/2;
                     
@@ -158,7 +179,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                         Counter -= MaxCount;
                     }
                     
-                    f32 FPS = Minimum(1000.0f/LastMSPerFrame, GameUpdateHz);
+                    f32 FPS = Min(1000.0f/LastMSPerFrame, GameUpdateHz);
                     
                     AppLog("%.2fms/f %.0fFPS", (f64)LastMSPerFrame, (f64)FPS);
                 }

@@ -154,6 +154,8 @@ WinMain(HINSTANCE Instance,
     
     GlobalDebuggerIsAttached = raddbg_is_attached();
     
+    Trap();
+    
     AllocConsole();
     FILE* stream;
     freopen_s(&stream, "CONOUT$", "w", stdout);

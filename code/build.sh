@@ -112,7 +112,7 @@ C_Compile()
  ReleaseFlags="-O3"
 
  ClangFlags="-fdiagnostics-absolute-paths -ftime-trace
--Wno-null-dereference -Wno-missing-braces -Wno-vla-extension -Wno-writable-strings   -Wno-address-of-temporary -Wno-int-to-void-pointer-cast"
+-Wno-null-dereference -Wno-missing-braces -Wno-vla-extension -Wno-writable-strings   -Wno-address-of-temporary -Wno-int-to-void-pointer-cast -Wno-reorder-init-list -Wno-c99-designator"
 
  GCCFlags="-Wno-cast-function-type -Wno-missing-field-initializers -Wno-int-to-pointer-cast"
 
@@ -158,8 +158,8 @@ fi
 
 if [ "$example" = 1 ]
 then
- C_Compile ./example/app.cpp app.so "-fPIC --shared -DBASE_NO_ENTRYPOINT=1" 
- C_Compile $(Strip ./example/platform.cpp) "-lX11"
+ C_Compile ./example/ex_app.cpp app.so "-fPIC --shared -DBASE_NO_ENTRYPOINT=1" 
+ C_Compile $(Strip ./example/ex_platform.cpp) "-lX11"
 fi
 
 #- End

@@ -6,7 +6,6 @@
 #include <X11/extensions/Xrandr.h>
 #include <X11/cursorfont.h>
 #include <signal.h>
-#include <execinfo.h>
 #include <dlfcn.h>
 
 struct linux_x11_context
@@ -64,39 +63,9 @@ ConvertUTF8StringToRune(u8 UTF8String[4])
 }
 
 internal void
-LinuxSigINTHandler(int SigNum)
+LinuxSigIntHandler(int Signal)
 {
     *GlobalRunning = false;
-    
-    Log("\nCallstack:\n");
-    
-    void *IPs[4096] = {0};
-    int IPsCount = backtrace(IPs, ArrayCount(IPs));
-    
-    for EachIndex(Idx, IPsCount)
-    {
-        Dl_info Info = {0};
-        dladdr(IPs[Idx], &Info);
-        char CMD[2048];
-        snprintf(CMD, sizeof(CMD), "llvm-symbolizer --relative-address -f -e %s %lu", Info.dli_fname, (unsigned long)IPs[Idx] - (unsigned long)Info.dli_fbase);
-        FILE *Out = popen(CMD, "r");
-        if(Out)
-        {
-            char FuncName[256], FileName[256];
-            if(fgets(FuncName, sizeof(FuncName), Out) && fgets(FileName, sizeof(FileName), Out))
-            {
-                str8 Func = S8CString(FuncName);
-                if(Func.Size > 0) Func.Size -= 1;
-                str8 Module = S8SkipLastSlash(S8CString(Info.dli_fname));
-                str8 File = S8SkipLastSlash(S8CString(FileName));
-                if(File.Size > 0) File.Size -= 1;
-                Log("%lu. " S8Fmt ", " S8Fmt " " S8Fmt "\n",
-                    Idx, S8Arg(Module), S8Arg(Func), S8Arg(File));
-            }
-        }
-    }
-    
-    Log("\nVersion: 1.0\n");
 }
 
 internal void 
@@ -115,11 +84,12 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
 {
     P_context Result = 0;
     s32 XRet = 0;
+    char *WindowName = "Handmade Window";
     
     linux_x11_context *Context = PushStruct(Arena, linux_x11_context);
     
-    GlobalRunning = Running; 
-    signal(SIGINT, LinuxSigINTHandler);
+    GlobalRunning = Running;
+    signal(SIGINT, LinuxSigIntHandler);
     
     Context->DisplayHandle = XOpenDisplay(0);
     if(Context->DisplayHandle)
@@ -132,7 +102,7 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
         {
             XSetWindowAttributes WindowAttributes = {};
             WindowAttributes.bit_gravity = StaticGravity;
-#if HANDMADE_INTERNAL            
+#if RL_INTERNAL            
             WindowAttributes.background_pixel = 0xFF00FF;
 #endif
             WindowAttributes.colormap = XCreateColormap(Context->DisplayHandle, RootWindow, WindowVisualInfo.visual, AllocNone);
@@ -142,15 +112,20 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
                                            EnterWindowMask | LeaveWindowMask);
             u64 WindowAttributeMask = CWBitGravity | CWBackPixel | CWColormap | CWEventMask;
             
+            // TODO(luca): Query information
+            s32 ScreenWidth = 1920;
+            s32 ScreenHeight = 1080;
+            // NOTE(luca): Align window with the right edge of the screen.
+            s32 X = ScreenWidth - Buffer->Width; 
+            s32 Y = 0; 
             Context->WindowHandle = XCreateWindow(Context->DisplayHandle, RootWindow,
-                                                  0, 0,
-                                                  Buffer->Width, Buffer->Height,
+                                                  X, Y, Buffer->Width, Buffer->Height,
                                                   0,
                                                   WindowVisualInfo.depth, InputOutput,
                                                   WindowVisualInfo.visual, WindowAttributeMask, &WindowAttributes);
             if(Context->WindowHandle)
             {
-                XRet = XStoreName(Context->DisplayHandle, Context->WindowHandle, "Handmade Window");
+                XRet = XStoreName(Context->DisplayHandle, Context->WindowHandle, WindowName);
                 
                 // NOTE(luca): If we set the MaxWidth and MaxHeigth to the same values as MinWidth and MinHeight there is a bug on dwm where it won't update the window decorations when trying to remove them.
                 // In the future we will allow resizing to any size so this does not matter that much.
@@ -162,8 +137,8 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
                 XRet = XSetTransientForHint(Context->DisplayHandle, Context->WindowHandle, RootWindow);
                 
                 XClassHint ClassHint = {};
-                ClassHint.res_name = "Handmade Window";
-                ClassHint.res_class = "Handmade Window";
+                ClassHint.res_name = WindowName;
+                ClassHint.res_class = WindowName;
                 XSetClassHint(Context->DisplayHandle, Context->WindowHandle, &ClassHint);
                 
                 XSetLocaleModifiers("");
@@ -334,7 +309,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                     else if((WindowEvent.xkey.state & Mod1Mask) && 
                             (Symbol == XK_F3))
                     {
-                        pthread_kill(ThreadContext->Handle, SIGINT);
+                        pthread_kill(ThreadContext->Handle, SIGILL);
                     }
                 } break;
                 

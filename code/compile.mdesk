@@ -1,3 +1,5 @@
+// WIP project build config
+
 @Table Compilers:
 {
     clang,
@@ -17,8 +19,6 @@
     cpp,
     cuda,
 }
-
-// -DOS_LINUX
 
 @Table Flags:
 {

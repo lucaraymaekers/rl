@@ -18,7 +18,7 @@ struct arena_alloc_params
     umm Size;
 };
 
-#define ArenaAllocDefaultSize Megabytes(64)
+#define ArenaAllocDefaultSize MB(64)
 
 #define ArenaAlloc(...) ArenaAlloc_(arena_alloc_params{.DefaultSize = ArenaAllocDefaultSize, ##__VA_ARGS__})
 internal arena *ArenaAlloc_(arena_alloc_params Params);

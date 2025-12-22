@@ -3,7 +3,7 @@
 #ifndef OS_H
 #define OS_H
 
-global_variable u8 LogBuffer[Kilobytes(64)];
+global_variable u8 LogBuffer[KB(64)];
 
 typedef struct entry_point_params entry_point_params;
 struct entry_point_params
