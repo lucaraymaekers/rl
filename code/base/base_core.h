@@ -84,14 +84,14 @@
 #define Clamp(A, X, B) (((X) < (A)) ? (A) : ((X) > (B)) ? (B) : (X))
 
 #ifndef LANG_C
-# define Swap(A, B) do { typeof(A) temp = (typeof(A))A; A = B; B = temp; } while(0)
+# define Swap(A, B) do { typeof((A)) (temp) = (typeof((A)))(A); (A) = (B); (B) = (temp); } while(0)
 #else
 template <typename type> inline void 
 Swap(type& A, type& B) { type T = A; A = B; B = T; }
 #endif
 
 //- 
-#define NullExpression ((void)0)
+#define NoOp ((void)0)
 
 #if OS_LINUX
 # define Trap() __builtin_trap();
@@ -100,19 +100,19 @@ Swap(type& A, type& B) { type T = A; A = B; B = T; }
 #endif
 
 #if OS_LINUX
-# define DebugBreak do { if(GlobalDebuggerIsAttached) __asm__ volatile("int3"); } while(0)
+# define DebugBreak    do { if(GlobalDebuggerIsAttached) __asm__ volatile("int3"); else Trap(); } while(0)
 #elif OS_WINDOWS
-# define DebugBreak do { if(GlobalDebuggerIsAttached) Trap(); } while(0)
+# define DebugBreak Trap();
 #endif
 #define DebugBreakOnce do { local_persist b32 X = true; if(X) DebugBreak; X = false; } while(0)
 
 #if RL_INTERNAL
 # define AssertMsg(Expression, Format, ...) \
-do { if(!(Expression)) { ErrorLog(Format, ##__VA_ARGS__); Trap(); } } while(0)
+do { if(!(Expression)) { ErrorLog(Format, ##__VA_ARGS__); DebugBreak; } } while(0)
 # define Assert(Expression) AssertMsg(Expression, "Hit assertion")
 #else
-# define AssertMsg(...)     NullExpression
-# define Assert(Expression) NullExpression
+# define AssertMsg(...)     NoOp
+# define Assert(Expression) NoOp
 #endif
 
 #define NotImplemented AssertMsg(0, "Not Implemented!")

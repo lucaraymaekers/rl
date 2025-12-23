@@ -309,7 +309,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                     else if((WindowEvent.xkey.state & Mod1Mask) && 
                             (Symbol == XK_F3))
                     {
-                        pthread_kill(ThreadContext->Handle, SIGILL);
+                        Trap();
                     }
                 } break;
                 

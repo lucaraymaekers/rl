@@ -40,7 +40,9 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         
         app_state AppState = {};
         AppState.PermanentArena = PermanentCPUArena;
+#if RL_INTERNAL
         AppState.DebuggerAttached = GlobalDebuggerIsAttached;
+#endif
         
         app_input Input[2] = {};
         app_input *NewInput = &Input[0];
@@ -84,7 +86,6 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                     {
                         dlclose(Library);
                     }
-                    Log("\nLibrary reloaded.\n");
                     
                     Library = dlopen(LibraryFilePath, RTLD_NOW);
                     if(!Library)
@@ -97,7 +98,11 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                         LastWriteTime = LibraryFileStats.st_mtim;
                         // Load code from library
                         UpdateAndRender = (update_and_render *)dlsym(Library, "UpdateAndRender");
-                        if(!UpdateAndRender)
+                        if(UpdateAndRender)
+                        {
+                            Log("\nLibrary reloaded.\n");
+                        }
+                        else
                         {
                             ErrorLog("Could not find UpdateAndRender.");
                             UpdateAndRender = UpdateAndRenderStub;
@@ -167,17 +172,21 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                     
                     // TODO(luca): Print a recent average instead.
                     
-                    local_persist s32 Counter = 0;
+#if 0                    
+                    local_persist s32 UpdateCounter = 0;
                     s32 MaxCount = (s32)GameUpdateHz/2;
                     
                     local_persist f32 LastMSPerFrame = WorkMSPerFrame;
                     
-                    Counter += 1;
-                    if(Counter > MaxCount)
+                    UpdateCounter += 1;
+                    if(UpdateCounter > MaxCount)
                     {
                         LastMSPerFrame = WorkMSPerFrame;
-                        Counter -= MaxCount;
+                        UpdateCounter -= MaxCount;
                     }
+#else
+                    f32 LastMSPerFrame = WorkMSPerFrame;
+#endif
                     
                     f32 FPS = Min(1000.0f/LastMSPerFrame, GameUpdateHz);
                     

@@ -64,11 +64,28 @@ struct app_input
     f32 dtForFrame;
 };
 
-inline b32 WasPressed(app_button_state State)
+//- Helper functions 
+internal inline b32 
+WasPressed(app_button_state State)
 {
     b32 Result = ((State.HalfTransitionCount > 1) || 
                   (State.HalfTransitionCount == 1 && State.EndedDown));
     return Result;
+}
+
+internal inline b32
+CharPressed(app_input *Input, rune Codepoint)
+{
+    b32 Pressed = false;
+    for EachIndex(Idx, Input->Text.Count)
+    {
+        if(Input->Text.Buffer[Idx].Codepoint == Codepoint)
+        {
+            Pressed = true;
+            break;
+        }
+    }
+    return Pressed;
 }
 
 //~ App logic

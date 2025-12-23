@@ -76,7 +76,7 @@ CU_Compile()
  DebugFlags="
 	-g
 	-lineinfo -src-in-ptx
-	-DRL_INTERNAL=1
+	-DRL_INTERNAL=1 -DRL_SLOW=1
 	"
  ReleaseFlags="-O3"
 
@@ -108,10 +108,13 @@ C_Compile()
  CommonWarningFlags="-Wall -Wextra -Wconversion -Wdouble-promotion -Wno-sign-conversion -Wno-sign-compare -Wno-double-promotion -Wno-unused-but-set-variable -Wno-unused-variable -Wno-write-strings -Wno-pointer-arith -Wno-unused-parameter -Wno-unused-function -Wno-missing-field-initializers"
  LinkerFlags=""
 
- DebugFlags="-g -ggdb -g3 -DRL_INTERNAL=1"
+ DebugFlags="
+  -g -ggdb -g3 
+  -DRL_INTERNAL=1 -DRL_SLOW=1
+ "
  ReleaseFlags="-O3"
 
- ClangFlags="-fdiagnostics-absolute-paths -ftime-trace
+ ClangFlags="-fdiagnostics-absolute-paths -fsanitize-undefined-trap-on-error -ftime-trace
 -Wno-null-dereference -Wno-missing-braces -Wno-vla-extension -Wno-writable-strings   -Wno-address-of-temporary -Wno-int-to-void-pointer-cast -Wno-reorder-init-list -Wno-c99-designator"
 
  GCCFlags="-Wno-cast-function-type -Wno-missing-field-initializers -Wno-int-to-pointer-cast"
@@ -158,7 +161,7 @@ fi
 
 if [ "$example" = 1 ]
 then
- C_Compile ./example/ex_app.cpp app.so "-fPIC --shared -DBASE_NO_ENTRYPOINT=1" 
+ C_Compile ./example/ex_app.cpp app.so "-fPIC --shared -lm -DBASE_NO_ENTRYPOINT=1" 
  C_Compile $(Strip ./example/ex_platform.cpp) "-lX11"
 fi
 
