@@ -102,7 +102,7 @@ Swap(type& A, type& B) { type T = A; A = B; B = T; }
 #if OS_LINUX
 # define DebugBreak    do { if(GlobalDebuggerIsAttached) __asm__ volatile("int3"); else Trap(); } while(0)
 #elif OS_WINDOWS
-# define DebugBreak Trap();
+# define DebugBreak do { if(GlobalDebuggerIsAttached) Trap(); } while(0)
 #endif
 #define DebugBreakOnce do { local_persist b32 X = true; if(X) DebugBreak; X = false; } while(0)
 

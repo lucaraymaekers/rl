@@ -192,7 +192,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
 #endif
     
     u32 Max = 255;
-    u32 NumbersCount = 17000;
+    u32 NumbersCount = 100000;
     u32 *Numbers = 0;
     
     if(!App->Initialized)
@@ -268,7 +268,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             {            
                 Color = ((0xFF << 3*8) |
                          ((Gray & 0xFF) << 2*8) |
-                         ((0x0) << 1*8) |
+                         ((Gray & 0xFF) << 1*8) |
                          ((0x0) << 0*8));
             }
             else

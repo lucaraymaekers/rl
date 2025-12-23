@@ -105,13 +105,13 @@ OS_PrintFormat(char *Format, ...)
 internal void
 OS_BarrierWait(barrier Barrier)
 {
-    
+   NotImplemented;
 }
 
 internal void 
 OS_SetThreadName(str8 ThreadName)
 {
-    
+   NotImplemented;
 }
 
 internal void *
@@ -139,7 +139,7 @@ OS_GetWallClock(void)
 internal void
 OS_Sleep(u32 Seconds)
 {
-    //Sleep(Seconds/1000);
+   NotImplemented; 
 }
 
 //~ Entrypoint
@@ -154,7 +154,7 @@ WinMain(HINSTANCE Instance,
     
     GlobalDebuggerIsAttached = raddbg_is_attached();
     
-    Trap();
+    DebugBreak;
     
     AllocConsole();
     FILE* stream;
