@@ -64,10 +64,10 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
             // Prepare  Input
             { 
+                *NewInput = *OldInput;
                 NewInput->Text.Count = 0;
                 for EachIndex(Idx, PlatformButton_Count)
                 {
-                    NewInput->Buttons[Idx].EndedDown = OldInput->Buttons[Idx].EndedDown;
                     NewInput->Buttons[Idx].HalfTransitionCount = 0;
                 }
             }
