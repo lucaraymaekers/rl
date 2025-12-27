@@ -1,8 +1,11 @@
 #include "base/base.h"
 #include "ex_platform.h"
 
-#include "lib/glad/gl.c"
+#define GLAD_GL_IMPLEMENTATION
+#include "lib/gl_compat.h"
 #include <math.h>
+
+typedef unsigned int gl_handle;
 
 typedef struct vertex vertex;
 struct vertex
@@ -40,6 +43,11 @@ typedef s32 face[4][3];
 #define ColorBackground    0xFF13171F
 #define ColorMapBackground 0xFF3A4151
 
+#define HexToRGBV3(Hex) ((f32)((Hex >> 8*2) & 0xFF)/255.0f), \
+((f32)((Hex >> 8*1) & 0xFF)/255.0f), \
+((f32)((Hex >> 8*0) & 0xFF)/255.0f)
+
+
 //~ GLAD
 void GLADNullPreCallback(const char *name, GLADapiproc apiproc, int len_args, ...) {}
 
@@ -60,7 +68,7 @@ void GLADEnableCallbacks()
 
 //~ Helpers
 internal inline u32 *
-PixelFromBuffer(app_offscreen_buffer *Buffer, u32 X, u32 Y)
+PixelFromBuffer(app_offscreen_buffer *Buffer, s32 X, s32 Y)
 {
     Assert(X >= 0 && X < Buffer->Width);
     Assert(Y >= 0 && Y < Buffer->Height);
@@ -89,6 +97,39 @@ BubbleSort(u32 Count, u32 *List)
         }
     }
 }
+
+internal void
+CompileStatusTrap(gl_handle Handle, b32 IsShader)
+{
+    b32 Success = true;
+    
+    char InfoLog[KB(2)] = {};
+    if(IsShader)
+    {
+        glGetShaderiv(Handle, GL_COMPILE_STATUS, &Success);
+        glGetShaderInfoLog(Handle, sizeof(InfoLog), NULL, InfoLog);
+    }
+    else
+    {
+        glGetProgramiv(Handle, GL_LINK_STATUS, &Success);
+        glGetProgramInfoLog(Handle, sizeof(InfoLog), NULL, InfoLog);
+    }
+    
+    Assert(Success);
+}
+
+internal gl_handle
+CompileShaderFromSource(str8 Source, s32 Type)
+{
+    gl_handle Handle = glCreateShader(Type);
+    
+    glShaderSource(Handle, 1, (char **)&Source.Data, NULL);
+    glCompileShader(Handle);
+    CompileStatusTrap(Handle, true);
+    
+    return Handle;
+}
+
 
 //~ Sorting
 internal void 
@@ -334,21 +375,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
     GLADDisableCallbacks();
 #endif
     
-    glViewport(0, 0, Buffer->Width, Buffer->Height);
+    s32 Count = 0;
+    vertex *Vertices = 0;
+    tex_coord *TexCoords = 0; 
+    normal *Normals = 0;
     
-    GLuint TextureHandle = 0;
-    glGenTextures(1, &TextureHandle);
-    glBindTexture(GL_TEXTURE_2D, TextureHandle);
-    
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glClearColor(0.38f, 0.38f, 0.38f, 0.0f);
-    
-    OS_ProfileAndPrint("GL Init", &Profiler);
-    
-#if 1    
     // Read .obj file
     {    
-        char *FileName = "./data/ladida.obj";
+        char *FileName = "./data/suzanne.obj";
         str8 In = OS_ReadEntireFileIntoMemory(FileName);
         
         s32 InVerticesCount = 0;
@@ -386,7 +420,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         New(vertex, InVertex, InVertices, InVerticesCount);
                         InVertex->X = ParseFloat(In, &At);
                         InVertex->Y = ParseFloat(In, &At);
+#if 0
                         InVertex->Z = ParseFloat(In, &At);
+#else
+                        InVertex->Z = 0.0f;
+#endif
                     }
                     else if(S8Match(Keyword, S8("vt"), false))
                     {
@@ -442,10 +480,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
             // NOTE(luca): Should already be logged in platform layer.
         }
         
-        s32 Count = InFacesCount*4;
-        vertex *Vertices = PushArray(FrameArena, vertex, Count);
-        tex_coord *TexCoords = PushArray(FrameArena, tex_coord, Count);
-        normal *Normals = PushArray(FrameArena, normal, Count);
+        Count = InFacesCount*4;
+        Vertices = PushArray(FrameArena, vertex, Count);
+        TexCoords = PushArray(FrameArena, tex_coord, Count);
+        Normals = PushArray(FrameArena, normal, Count);
         
         for EachIndex(Idx, InFacesCount)
         {
@@ -462,15 +500,85 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 Normals[Offset] = InNormals[NormalIdx - 1];
             }
         }
-        
-        GLADDisableCallbacks();
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertex)*Count, &Vertices[0], GL_STATIC_DRAW);
-        GLADEnableCallbacks();
-        
         OS_FreeFileMemory(In);
+        OS_ProfileAndPrint("Obj read", &Profiler);
     }
+    
+    s32 Major, Minor;
+    glGetIntegerv(GL_MAJOR_VERSION, &Major);
+    glGetIntegerv(GL_MINOR_VERSION, &Minor);
+    
+    glViewport(0, 0, Buffer->Width, Buffer->Height);
+    
+    str8 VertexShaderSource = OS_ReadEntireFileIntoMemory("./code/example/vert.glsl");
+    str8 FragmentShaderSource = OS_ReadEntireFileIntoMemory("./code/example/frag.glsl");
+    gl_handle VertexShader = CompileShaderFromSource(VertexShaderSource, GL_VERTEX_SHADER);
+    gl_handle FragmentShader = CompileShaderFromSource(FragmentShaderSource, GL_FRAGMENT_SHADER);
+    gl_handle ShaderProgram = glCreateProgram();
+    glAttachShader(ShaderProgram, VertexShader);
+    glAttachShader(ShaderProgram, FragmentShader);
+    glLinkProgram(ShaderProgram);
+    CompileStatusTrap(ShaderProgram, false);
+    
+    glDeleteShader(FragmentShader); 
+    glDeleteShader(VertexShader);
+    OS_FreeFileMemory(VertexShaderSource);
+    OS_FreeFileMemory(FragmentShaderSource);
+    
+    glUseProgram(ShaderProgram);
+    
+    gl_handle VAO, VBO;
+    glGenVertexArrays(1, &VAO); 
+    glGenBuffers(1, &VBO);  
+    
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    
+    f32 FooVertices[] = {
+        // positions         // colors
+        0.5f,  -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   // bottom right
+        -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,   // bottom left
+        0.0f,  0.5f,  0.0f,  0.0f, 0.0f, 1.0f    // top 
+    };  
+    
+    DebugBreakOnce;
+#if 1    
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(f32), 0);
+    glEnableVertexAttribArray(0);
+    
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex)*Count, &Vertices[0], GL_STATIC_DRAW);
+#else
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6*sizeof(f32), 0);
+    glEnableVertexAttribArray(0);
+    
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6*sizeof(f32), (void *)(3*sizeof(f32)));
+    glEnableVertexAttribArray(1);
+    
+    glBufferData(GL_ARRAY_BUFFER, sizeof(FooVertices), FooVertices, GL_STATIC_DRAW);
 #endif
     
-    OS_ProfileAndPrint("Obj read", &Profiler);
+    b32 Fill = true;
+    if(Fill)
+    {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    }
+    else
+    {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    }
     
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(HexToRGBV3(ColorMapBackground), 0.0f);
+    
+#if 1
+    glDrawArrays(GL_TRIANGLES, 0, Count);
+#else
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+#endif
+    
+    glDeleteBuffers(1, &VBO);
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteProgram(ShaderProgram);
+    
+    OS_ProfileAndPrint("GL", &Profiler);
 }

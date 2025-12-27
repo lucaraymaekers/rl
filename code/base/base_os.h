@@ -69,7 +69,7 @@ internal void
 OS_ProfileAndPrint(char *Label, OS_profiler *Profiler)
 {
     Profiler->End = OS_GetWallClock();
-    Log("%s: %.4f\n", Label, OS_MSElapsed(Profiler->Start, Profiler->End));
+    Log(" %s: %.4f\n", Label, OS_MSElapsed(Profiler->Start, Profiler->End));
     Profiler->Start = Profiler->End;
 }
 

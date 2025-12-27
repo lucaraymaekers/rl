@@ -159,15 +159,15 @@ do { if(!(Expression)) TrapMsg(Format, ##__VA_ARGS__); } while(0)
 
 #if COMPILER_MSVC
 # define force_inline __forceinline
-#elif COMPILER_CLANG || COMPILER_GCC
-# define force_inline __attribute__((always_inline))
+#elif COMPILER_CLANG || COMPILER_GNU
+# define force_inline __attribute__((always_inline)
 #else
 # error force_inline not defined for this compiler.
 #endif
 
 #if COMPILER_MSVC
 # define no_inline __declspec(noinline)
-#elif COMPILER_CLANG || COMPILER_GCC
+#elif COMPILER_CLANG || COMPILER_GNU
 # define no_inline __attribute__((noinline))
 #else
 # error no_inline not defined for this compiler.
@@ -188,7 +188,7 @@ do { if(!(Expression)) TrapMsg(Format, ##__VA_ARGS__); } while(0)
 #elif COMPILER_CLANG && !BUILD_DEBUG
 # define NO_OPTIMIZE_BEGIN _Pragma("clang optimize off")
 # define NO_OPTIMIZE_END _Pragma("clang optimize on")
-#elif COMPILER_GCC && !BUILD_DEBUG
+#elif COMPILER_GNU && !BUILD_DEBUG
 # define NO_OPTIMIZE_BEGIN _Pragma("GCC push_options") _Pragma("GCC optimize(\"O0\")")
 # define NO_OPTIMIZE_END _Pragma("GCC pop_options")
 #else

@@ -33,7 +33,6 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         Buffer.Pitch = Buffer.BytesPerPixel*Buffer.Width;
         Buffer.Pixels = PushArray(PermanentCPUArena, u8, Buffer.Pitch*Buffer.Height);
         
-        DebugBreak;
         P_context PlatformContext = P_ContextInit(PermanentCPUArena, &Buffer, Running);
         if(!PlatformContext)
         {
@@ -79,7 +78,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 }
             }
             
-            OS_ProfileAndPrint("Input", &Profiler);
+            OS_ProfileAndPrint("P_InitSetup", &Profiler);
             
 #if OS_LINUX      
             // Load application code
@@ -122,33 +121,26 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 Assert(UpdateAndRender);
             }
             
-            OS_ProfileAndPrint("Code", &Profiler);
+            OS_ProfileAndPrint("P_Code", &Profiler);
             
 #endif
             
             P_ProcessMessages(PlatformContext, NewInput, &Buffer, Running);
             
-            OS_ProfileAndPrint("Messages", &Profiler);
-#if 1            
-            NewInput->Text.Buffer[NewInput->Text.Count].Codepoint = 0;
-            AppLog("'%c' (%d, %d) 1:%c 2:%c 3:%c", 
-                   (u8)NewInput->Text.Buffer[0].Codepoint,
-                   NewInput->MouseX, NewInput->MouseY,
-                   (NewInput->Buttons[PlatformButton_Left  ].EndedDown ? 'x' : 'o'),
-                   (NewInput->Buttons[PlatformButton_Middle].EndedDown ? 'x' : 'o'),
-                   (NewInput->Buttons[PlatformButton_Right ].EndedDown ? 'x' : 'o')); 
-#endif
+            OS_ProfileAndPrint("P_Messages", &Profiler);
             
             UpdateAndRender(ThreadContext, &AppState, CPUFrameArena, &Buffer, NewInput);
             
-            OS_ProfileAndPrint("UpdateAndRender", &Profiler);
+            OS_ProfileAndPrint("P_UpdateAndRender", &Profiler);
             
+            P_UpdateImage(PlatformContext, &Buffer);
             
+            OS_ProfileAndPrint("P_UpdateImage", &Profiler);
+            
+            s64 WorkCounter = OS_GetWallClock();
+            f32 WorkMSPerFrame = OS_MSElapsed(LastCounter, WorkCounter);
             // Sleep
             {            
-                s64 WorkCounter = OS_GetWallClock();
-                f32 WorkMSPerFrame = OS_MSElapsed(LastCounter, WorkCounter);
-                
                 f32 SecondsElapsedForFrame = OS_SecondsElapsed(LastCounter, WorkCounter);
                 if(SecondsElapsedForFrame < TargetSecondsPerFrame)
                 {
@@ -182,45 +174,26 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 
                 s64 EndCounter = OS_GetWallClock();
                 
-                // Print elapsed time
-                {                
-                    f32 MSPerFrame = OS_MSElapsed(LastCounter, EndCounter);
-                    
-                    // TODO(luca): Print a recent average instead.
-                    
-#if 0                    
-                    local_persist s32 UpdateCounter = 0;
-                    s32 MaxCount = (s32)GameUpdateHz/2;
-                    
-                    local_persist f32 LastMSPerFrame = WorkMSPerFrame;
-                    
-                    UpdateCounter += 1;
-                    if(UpdateCounter > MaxCount)
-                    {
-                        LastMSPerFrame = WorkMSPerFrame;
-                        UpdateCounter -= MaxCount;
-                    }
-#else
-                    f32 LastMSPerFrame = WorkMSPerFrame;
-#endif
-                    
-                    f32 FPS = Min(1000.0f/LastMSPerFrame, GameUpdateHz);
-                    
-                    AppLog(" %.2fms/f %.0fFPS", (f64)LastMSPerFrame, (f64)FPS);
-                }
-                
-                AppLog("\n");
-                
                 LastCounter = EndCounter;
             }
             
+#if 1            
+            NewInput->Text.Buffer[NewInput->Text.Count].Codepoint = 0;
+            f32 FPS = Min(1000.0f/WorkMSPerFrame, GameUpdateHz);
+            AppLog("'%c' (%d, %d) 1:%c 2:%c 3:%c", 
+                   (u8)NewInput->Text.Buffer[0].Codepoint,
+                   NewInput->MouseX, NewInput->MouseY,
+                   (NewInput->Buttons[PlatformButton_Left  ].EndedDown ? 'x' : 'o'),
+                   (NewInput->Buttons[PlatformButton_Middle].EndedDown ? 'x' : 'o'),
+                   (NewInput->Buttons[PlatformButton_Right ].EndedDown ? 'x' : 'o')); 
+            
+            AppLog(" %.2fms/f %.0fFPS", (f64)WorkMSPerFrame, (f64)FPS);
+            AppLog("\n");
+#endif
+            
             Swap(OldInput, NewInput);
             
-            OS_ProfileAndPrint("Sleep", &Profiler);
-            
-            P_UpdateImage(PlatformContext, &Buffer);
-            
-            OS_ProfileAndPrint("UpdateImage", &Profiler);
+            OS_ProfileAndPrint("P_Sleep", &Profiler);
             
             FlipWallClock = OS_GetWallClock();
             

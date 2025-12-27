@@ -2,8 +2,12 @@
 //- OpenGL 
 #include <GL/gl.h>
 #include <GL/glx.h>
-#define GLX_CONTEXT_MAJOR_VERSION_ARB       0x2091
-#define GLX_CONTEXT_MINOR_VERSION_ARB       0x2092
+#define GLX_CONTEXT_MAJOR_VERSION_ARB 0x2091
+#define GLX_CONTEXT_MINOR_VERSION_ARB 0x2092
+#define GLX_CONTEXT_PROFILE_MASK_ARB 0x9126
+#define GLX_CONTEXT_CORE_PROFILE_BIT_ARB 0x00000001
+#define GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
+
 typedef GLXContext (*glXCreateContextAttribsARBProc)(Display*, GLXFBConfig, GLXContext, Bool, 
                                                      const int*);
 //- X11 
@@ -91,7 +95,7 @@ IsExtensionSupported(const char *ExtList, char *Extension)
     
     // Extension names should not have spaces.
     Where = strchr(Extension, ' ');
-    if(Where && *Extension != '\0')
+    if(!Where && *Extension != '\0')
     {    
         Start = ExtList;
         Where = strstr(Start, Extension);
@@ -320,7 +324,7 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
                 
                 if(OpenGLMode)
                 {
-                    const char *glxExts = glXQueryExtensionsString(DisplayHandle, ScreenHandle);
+                    const char *GLXExtensions = glXQueryExtensionsString(DisplayHandle, ScreenHandle);
                     
                     // NOTE: It is not necessary to create or make current to a context before
                     // calling glXGetProcAddressARB
@@ -334,38 +338,40 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
                     int (*XOldErrorHandler)(Display*, XErrorEvent*) =
                         XSetErrorHandler(&XCtxErrorHandler);
                     
-                    if(IsExtensionSupported(glxExts, "GLX_ARB_create_context") &&
-                       glXCreateContextAttribsARB)
+                    b32 ExtensionSupported = (IsExtensionSupported(GLXExtensions, "GLX_ARB_create_context") &&
+                                              glXCreateContextAttribsARB);
+                    if(ExtensionSupported)
                     {
-                        int context_attribs[] =
+                        s32 Attributes[] =
                         {
-#if 0
+#if 1
                             GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
                             GLX_CONTEXT_MINOR_VERSION_ARB, 3,
+                            // Mask
+                            GLX_CONTEXT_PROFILE_MASK_ARB, 0|GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
 #else
                             GLX_CONTEXT_MAJOR_VERSION_ARB, 2,
                             GLX_CONTEXT_MINOR_VERSION_ARB, 0,
 #endif
-                            None
+                            0,
                         };
                         
-                        GLContext = glXCreateContextAttribsARB(DisplayHandle, FBConfig, 0,
-                                                               True, context_attribs);
+                        GLContext = glXCreateContextAttribsARB(DisplayHandle, FBConfig, 0, true, Attributes);
                         
                         // Sync to ensure any errors generated are processed.
                         XSync(DisplayHandle, False);
                         if(XCtxError || !GLContext)
                         {
                             // GLX_CONTEXT_MAJOR_VERSION_ARB = 1
-                            context_attribs[1] = 1;
                             // GLX_CONTEXT_MINOR_VERSION_ARB = 0
-                            context_attribs[3] = 0;
+                            Attributes[1] = 1;
+                            Attributes[3] = 0;
                             
                             XCtxError = false;
                             
                             ErrorLog("Failed to create GL 3.0 context, using old-style GLX 2.x context\n");
                             GLContext = glXCreateContextAttribsARB(DisplayHandle, FBConfig, 0, 
-                                                                   True, context_attribs);
+                                                                   True, Attributes);
                         }
                     }
                     else

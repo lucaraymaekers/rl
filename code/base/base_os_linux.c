@@ -249,7 +249,9 @@ LinuxMainEntryPoint(int ArgsCount, char **Args)
     
     // Install signal handler for crash with callstacks
     {
-        struct sigaction Handler = { .sa_sigaction = LinuxSigHandler, .sa_flags = SA_SIGINFO, };
+        struct sigaction Handler = {0};
+        Handler.sa_sigaction = LinuxSigHandler;
+        Handler.sa_flags = SA_SIGINFO;
         sigfillset(&Handler.sa_mask);
         sigaction(SIGILL, &Handler, NULL);
         sigaction(SIGTRAP, &Handler, NULL);
