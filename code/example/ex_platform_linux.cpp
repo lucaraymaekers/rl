@@ -20,6 +20,8 @@ typedef GLXContext (*glXCreateContextAttribsARBProc)(Display*, GLXFBConfig, GLXC
 #include <signal.h>
 #include <dlfcn.h>
 
+#include "base/base_os_linux_x11_keysyms.c"
+
 struct linux_x11_context
 {
     XImage *WindowImage;
@@ -520,15 +522,15 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                 }
                                 
                                 // NOTE(luca): Since this is only for text input we pass Return and Backspace as codepoints.
-                                if((Codepoint >= ' ' || Codepoint < 0) ||
-                                   Codepoint == '\r' || Codepoint == '\b' || Codepoint == '\n')
+                                if(Codepoint >= ' ' || Codepoint < 0)
                                 {                            
-                                    app_text_button *TextButton = &Input->Text.Buffer[Input->Text.Count];
+                                    app_text_button *Button = &Input->Text.Buffer[Input->Text.Count];
+                                    *Button = {};
                                     Input->Text.Count += 1;
-                                    TextButton->Codepoint = Codepoint;
-                                    TextButton->Shift   = (WindowEvent.xkey.state & ShiftMask);
-                                    TextButton->Control = (WindowEvent.xkey.state & ControlMask);
-                                    TextButton->Alt     = (WindowEvent.xkey.state & Mod1Mask);
+                                    Button->Codepoint = Codepoint;
+                                    Button->Shift   = (WindowEvent.xkey.state & ShiftMask);
+                                    Button->Control = (WindowEvent.xkey.state & ControlMask);
+                                    Button->Alt     = (WindowEvent.xkey.state & Mod1Mask);
 #if 0                           
                                     Log("%d bytes '%c' %d (%c|%c|%c)\n", 
                                         BytesLookepdUp, 
@@ -541,10 +543,84 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                 }
                                 else
                                 {
-                                    // TODO(luca): Logging
+                                    app_text_button *Button = &Input->Text.Buffer[Input->Text.Count];
+                                    *Button = {};
+                                    Input->Text.Count += 1;
+                                    Button->IsSymbol = true;
+                                    if(0) {}
+                                    else if(Symbol == XK_Escape)    Button->Symbol = PlatformKey_Escape;
+                                    else if(Symbol == XK_Tab)       Button->Symbol = PlatformKey_Tab;
+                                    else if(Symbol == XK_Return)    Button->Symbol = PlatformKey_Return;
+                                    else if(Symbol == XK_BackSpace) Button->Symbol = PlatformKey_BackSpace;
+                                    else
+                                    {
+                                        Input->Text.Count -= 1;;
+                                        AssertMsg(0, "Unhandled special key: %d", Symbol);
+                                    }
                                 }
-                                
                             }
+                            else
+                            {
+                                InvalidPath;
+                            }
+                        }
+                        else
+                        {
+                            app_text_button *Button = &Input->Text.Buffer[Input->Text.Count];
+                            *Button = {};
+                            Input->Text.Count += 1;
+                            Button->IsSymbol = true;
+                            
+                            if(0) {}
+                            else if(Symbol == XK_Up     || Symbol == XK_KP_Up)     
+                                Button->Symbol = PlatformKey_Up;
+                            else if(Symbol == XK_Left   || Symbol == XK_KP_Left)   
+                                Button->Symbol = PlatformKey_Left;
+                            else if(Symbol == XK_Right  || Symbol == XK_KP_Right)  
+                                Button->Symbol = PlatformKey_Right;
+                            else if(Symbol == XK_Down   || Symbol == XK_KP_Down)   
+                                Button->Symbol = PlatformKey_Down;
+                            else if(Symbol == XK_Delete || Symbol == XK_KP_Delete) 
+                                Button->Symbol = PlatformKey_Delete;
+                            else if(Symbol == XK_Home   || Symbol == XK_KP_Home)   
+                                Button->Symbol = PlatformKey_Home;
+                            else if(Symbol == XK_End    || Symbol == XK_KP_End)     
+                                Button->Symbol = PlatformKey_End;
+                            else if(Symbol == XK_Prior  || Symbol == XK_KP_Prior)  
+                                Button->Symbol = PlatformKey_PageUp;
+                            else if(Symbol == XK_Next   || Symbol == XK_KP_Next)   
+                                Button->Symbol = PlatformKey_PageDown;
+                            else if(Symbol == XK_Insert || Symbol == XK_KP_Insert)
+                                Button->Symbol = PlatformKey_Insert;
+                            
+                            else if(Symbol >= XK_F1 && Symbol <= XK_F12) 
+                            {
+                                Button->Symbol = (platform_key)(PlatformKey_F1 + (Symbol - XK_F1));
+                            }
+                            
+                            // NOTE(luca): Ignored
+                            else if(Symbol == XK_KP_Begin || 
+                                    Symbol == XK_Super_L ||
+                                    Symbol == XK_Super_R || 
+                                    Symbol == XK_Alt_L ||
+                                    Symbol == XK_Alt_R ||
+                                    Symbol == XK_Shift_L ||
+                                    Symbol == XK_Shift_R ||
+                                    Symbol == XK_Control_L ||
+                                    Symbol == XK_Control_R ||
+                                    Symbol == XK_Num_Lock ||
+                                    Symbol == XK_Caps_Lock) 
+                            {
+                                Input->Text.Count -= 1;
+                            }
+                            
+                            else
+                            {
+                                Input->Text.Count -= 1;
+                                ErrorLog("Unhandled special key(%d): %s", Symbol, LinuxReturnStringForSymbol(Symbol));
+                                DebugBreak;
+                            }
+                            
                         }
                     }
                     else if((WindowEvent.xkey.state & Mod1Mask) && 

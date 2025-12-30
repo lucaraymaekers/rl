@@ -117,6 +117,7 @@ BubbleSort(u32 Count, u32 *List)
     }
 }
 
+
 internal void
 GLErrorStatus(gl_handle Handle, b32 IsShader)
 {
@@ -137,6 +138,7 @@ GLErrorStatus(gl_handle Handle, b32 IsShader)
     if(!Success)
     {
         ErrorLog("%s", InfoLog);
+        DebugBreak;
     }
 }
 
@@ -365,6 +367,8 @@ ParseFloat(str8 Inner, u64 *Cursor)
 C_LINKAGE 
 UPDATE_AND_RENDER(UpdateAndRender)
 {
+    b32 ShouldQuit = false;
+    
     OS_profiler Profiler = OS_ProfileInit();
     
     ThreadContextSelect(Context);
@@ -398,22 +402,54 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
     OS_ProfileAndPrint("Init", &Profiler);
     
+    local_persist b32 Animate = true;
+    
     //Input 
     for EachIndex(Idx, Input->Text.Count)
     {
         app_text_button Key = Input->Text.Buffer[Idx];
         
-        if(Key.Codepoint == 'a') App->Offset = 0.0f;
+        if(!Key.IsSymbol)
+        {
+            if(Key.Codepoint == 'b')
+            {
+                DebugBreak;
+            }
+            if(Key.Codepoint == 'r') 
+            {
+                App->XOffset = 0.0f;
+                App->YOffset = 0.0f;
+            }
+            if(Key.Codepoint == 'a') Animate = !Animate;
+        }
+        else
+        {
+            if(Key.Codepoint == PlatformKey_Escape) ShouldQuit = true;
+            if(Key.Codepoint == PlatformKey_Right)  App->XOffset += 0.1f;
+            if(Key.Codepoint == PlatformKey_Left)   App->XOffset -= 0.1f;
+            if(Key.Codepoint == PlatformKey_Up)     App->YOffset -= 0.1f;
+            if(Key.Codepoint == PlatformKey_Down)   App->YOffset += 0.1f;
+        }
     }
+    
+    if(Animate)
+    {
+        App->XOffset += Input->dtForFrame;
+    }
+    
+    App->XOffset -= 2.0f*!!(App->XOffset > 2.0f);
+    App->XOffset += 2.0f*!!(App->XOffset < -2.0f);
+    App->YOffset -= 2.0f*!!(App->YOffset > 2.0f);
+    App->YOffset += 2.0f*!!(App->YOffset < -2.0f);
     
     s32 Count = 0;
     vertex *Vertices = 0;
     tex_coord *TexCoords = 0; 
     normal *Normals = 0;
     
-    // Read .obj file
+    // Read obj file
     {    
-        char *FileName = "./data/ladida.obj";
+        char *FileName = "./data/mo21312del.obj";
         str8 In = OS_ReadEntireFileIntoMemory(FileName);
         
         s32 InVerticesCount = 0;
@@ -469,7 +505,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     else if(S8Match(Keyword, S8("f"), false))
                     {
                         New(face, InFace, InFaces, InFacesCount);
-                        
                         for EachIndex(Y, 4)
                         {
                             for EachIndex(X, 3)
@@ -482,10 +517,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                     Value = 10*Value + Digit;
                                     At += 1;
                                 }
-                                (*InFace)[Y][X] = Value;
+                                // NOTE(luca): Index start at 1 in obj file
+                                (*InFace)[Y][X] = Value - 1;
                                 
                                 if(In.Data[At] == '/' || In.Data[At] == ' ') At += 1;
                             }
+                            if(In.Data[At] == '\n') break;
                         }
                         
                     }
@@ -512,19 +549,19 @@ UPDATE_AND_RENDER(UpdateAndRender)
         TexCoords = PushArray(FrameArena, tex_coord, Count);
         Normals = PushArray(FrameArena, normal, Count);
         
-        for EachIndex(Idx, InFacesCount)
+        for EachIndex(FaceIdx, InFacesCount)
         {
-            for EachIndex(Y, 4)
+            for EachIndex(Idx, 4)
             {
-                s32 *Face = InFaces[Idx][Y];
-                s32 VertexIdx = Face[0];
-                s32 TexCoordIdx = Face[1];
-                s32 NormalIdx = Face[2];
+                s32 *Face = InFaces[FaceIdx][Idx];
+                s32 vIdx = Face[0];
+                s32 vtIdx = Face[1];
+                s32 vnIdx = Face[2];
                 
-                umm Offset = Y*4 + Idx;
-                Vertices[Offset] = InVertices[VertexIdx - 1];
-                TexCoords[Offset] = InTexCoords[TexCoordIdx - 1];
-                Normals[Offset] = InNormals[NormalIdx - 1];
+                umm Offset = FaceIdx*4 + Idx;
+                Vertices[Offset] = InVertices[vIdx];
+                TexCoords[Offset] = InTexCoords[vtIdx];
+                Normals[Offset] = InNormals[vnIdx];
             }
         }
         OS_FreeFileMemory(In);
@@ -532,103 +569,84 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
     
     s32 Major, Minor;
-    glGetIntegerv(GL_MAJOR_VERSION, &Major);
-    glGetIntegerv(GL_MINOR_VERSION, &Minor);
-    
-    glViewport(0, 0, Buffer->Width, Buffer->Height);
-    
-    str8 VertexShaderSource = OS_ReadEntireFileIntoMemory("./code/example/vert.glsl");
-    str8 FragmentShaderSource = OS_ReadEntireFileIntoMemory("./code/example/frag.glsl");
-    gl_handle VertexShader = CompileShaderFromSource(VertexShaderSource, GL_VERTEX_SHADER);
-    gl_handle FragmentShader = CompileShaderFromSource(FragmentShaderSource, GL_FRAGMENT_SHADER);
-    gl_handle ShaderProgram = glCreateProgram();
-    glAttachShader(ShaderProgram, VertexShader);
-    glAttachShader(ShaderProgram, FragmentShader);
-    glLinkProgram(ShaderProgram);
-    GLErrorStatus(ShaderProgram, false);
-    
-    glDeleteShader(FragmentShader); 
-    glDeleteShader(VertexShader);
-    OS_FreeFileMemory(VertexShaderSource);
-    OS_FreeFileMemory(FragmentShaderSource);
-    
-    
-    
-    glUseProgram(ShaderProgram);
-    
-    gl_handle VAO, VBO;
-    glGenVertexArrays(1, &VAO); 
-    glGenBuffers(1, &VBO);  
-    
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    
-    vertex vertices[] = 
-    {
-#if 1
-        // Cube
-        {0.5f,  -0.5f,  0.5f}, // BR
-        {-0.5f, -0.5f,  0.5f}, // BL
-        {-0.5f,  0.5f,  0.5f}, // TL
-        {0.5f,  0.5f,   0.5f}, // TR
+    gl_handle VAO, VBO, ShaderProgram;
+    gl_handle PosAttrib, UAngle, UColor;
+    // Setup
+    { 
+        glGetIntegerv(GL_MAJOR_VERSION, &Major);
+        glGetIntegerv(GL_MINOR_VERSION, &Minor);
         
-        {0.5f,  -0.5f,  -0.5f},
-        {-0.5f, -0.5f,  -0.5f},
-        {-0.5f,  0.5f,  -0.5f}, 
-        {0.5f,  0.5f,   -0.5f},
-#elif 1
-        // Rectangle out of two triangles
-        {0.5f,  -0.5f,  0.5f},
-        {-0.5f, -0.5f,  0.5f},
-        {-0.5f,  0.5f,  0.5f}, 
+        glViewport(0, 0, Buffer->Width, Buffer->Height);
         
-        {0.5f,  -0.5f,  0.5f},
-        {-0.5f, 0.5f,  0.5f},
-        {0.5f,  0.5f,  0.5f}, 
-#endif
-    };
-    
-    GLuint faces[] =
-    {
-        0, 1, 2, 3,
-        4, 5, 6, 7,
-        1, 2, 6, 5,
-        0, 3, 7, 4,
-    };
-    
-    App->Offset += Input->dtForFrame;
-    
-    GLint PosAttrib = glGetAttribLocation(ShaderProgram, "pos");
-    glEnableVertexAttribArray(PosAttrib);
-    glVertexAttribPointer(PosAttrib, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), 0);
-    
-    f32 Angle = Pi32 * App->Offset;
-    
-    vertex Color = {cosf(Angle*2.0f), 0.5f, 0.0f};
-    
-    GLint UAngle = glGetUniformLocation(ShaderProgram, "angle");
-    GLint UColor = glGetUniformLocation(ShaderProgram, "color");
-    glUniform1f(UAngle, Angle);
-    glUniform3f(UColor, Color.X, Color.Y, Color.Z);
-    
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    
-    b32 Fill = true;
-    s32 Mode = (Fill) ? GL_FILL : GL_LINE;
-    glPolygonMode(GL_FRONT_AND_BACK, Mode);;
-    
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glClearColor(HexToRGBV3(ColorMapBackground), 0.0f);
-    glPointSize(10.0f);
-    
-    for EachIndex(Idx, 4)
-    {
-        glDrawElements(GL_LINE_LOOP, 4, GL_UNSIGNED_INT, faces + 4*Idx);
+        str8 VertexShaderSource = OS_ReadEntireFileIntoMemory("./code/example/vert.glsl");
+        str8 FragmentShaderSource = OS_ReadEntireFileIntoMemory("./code/example/frag.glsl");
+        gl_handle VertexShader = CompileShaderFromSource(VertexShaderSource, GL_VERTEX_SHADER);
+        gl_handle FragmentShader = CompileShaderFromSource(FragmentShaderSource, GL_FRAGMENT_SHADER);
+        ShaderProgram = glCreateProgram();
+        glAttachShader(ShaderProgram, VertexShader);
+        glAttachShader(ShaderProgram, FragmentShader);
+        glLinkProgram(ShaderProgram);
+        GLErrorStatus(ShaderProgram, false);
+        
+        glDeleteShader(FragmentShader); 
+        glDeleteShader(VertexShader);
+        OS_FreeFileMemory(VertexShaderSource);
+        OS_FreeFileMemory(FragmentShaderSource);
+        
+        glUseProgram(ShaderProgram);
+        
+        glGenVertexArrays(1, &VAO); 
+        glBindVertexArray(VAO);
+        glGenBuffers(1, &VBO);  
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        
+        PosAttrib = glGetAttribLocation(ShaderProgram, "pos");
+        glEnableVertexAttribArray(PosAttrib);
+        
+        UAngle = glGetUniformLocation(ShaderProgram, "angle");
+        UColor = glGetUniformLocation(ShaderProgram, "color");
+        
+        glVertexAttribPointer(PosAttrib, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), 0);
+        
+        b32 Fill = true;
+        s32 Mode = (Fill) ? GL_FILL : GL_LINE;
+        glPolygonMode(GL_FRONT_AND_BACK, Mode);
     }
     
-    glDeleteBuffers(1, &VBO);
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteProgram(ShaderProgram);
+    f32 XAngle = Pi32 * App->XOffset;
+    f32 YAngle = Pi32 * App->YOffset;
+    vertex Color = {HexToRGBV3(ColorPoint)};
+    // Shader prep
+    {    
+        glUniform2f(UAngle, XAngle, YAngle);
+        glUniform3f(UColor, Color.X, Color.Y, Color.Z);
+        
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertex)*Count, Vertices, GL_STATIC_DRAW);
+    }
+    
+    // Drawing
+    {    
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClearColor(HexToRGBV3(ColorMapBackground), 0.0f);
+        glPointSize(10.0f);
+        
+#if 1
+        for EachIndexType(u32, Idx, Count/4)
+        {
+            glDrawArrays(GL_LINE_LOOP, Idx*4, 3);
+        }
+#endif
+        
+    }
+    
+    // Delete
+    {    
+        glDeleteBuffers(1, &VBO);
+        glDeleteVertexArrays(1, &VAO);
+        glDeleteProgram(ShaderProgram);
+    }
     
     OS_ProfileAndPrint("GL", &Profiler);
+    
+    return ShouldQuit;
 }

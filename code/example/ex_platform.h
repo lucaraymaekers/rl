@@ -14,14 +14,58 @@ struct app_offscreen_buffer
     s32 BytesPerPixel;
 };
 
+enum platform_key
+{
+    PlatformKey_None = 0,
+    PlatformKey_Tab,
+    PlatformKey_Return,
+    PlatformKey_Escape,
+    
+    
+    PlatformKey_Delete,
+    PlatformKey_BackSpace,
+    PlatformKey_Insert,
+    
+    PlatformKey_F1,
+    PlatformKey_F2,
+    PlatformKey_F3,
+    PlatformKey_F4,
+    PlatformKey_F5,
+    PlatformKey_F6,
+    PlatformKey_F7,
+    PlatformKey_F8,
+    PlatformKey_F9,
+    PlatformKey_F10,
+    PlatformKey_F11,
+    PlatformKey_F12,
+    
+    PlatformKey_Home,
+    PlatformKey_End,
+    PlatformKey_PageUp,
+    PlatformKey_PageDown,
+    
+    PlatformKey_Up,
+    PlatformKey_Down,
+    PlatformKey_Left,
+    PlatformKey_Right,
+    
+    PlatformKey_Count,
+};
+typedef enum platform_key platform_key;
+
 typedef struct app_text_button app_text_button;
 struct app_text_button
 {
-    rune Codepoint;
+    union
+    {
+        rune Codepoint;
+        platform_key Symbol;
+    };
     // TODO(luca): Use flag and bits.
     b32 Control;
     b32 Shift;
     b32 Alt;
+    b32 IsSymbol;
 };
 
 typedef struct app_button_state app_button_state;
@@ -97,7 +141,8 @@ struct app_state
     
     arena *NumbersArena;
     
-    f32 Offset;
+    f32 XOffset;
+    f32 YOffset;
     
 #if RL_INTERNAL
     b32 DebuggerAttached;
@@ -108,7 +153,7 @@ struct app_state
 };
 
 //~ Functions
-#define UPDATE_AND_RENDER(Name) void Name(thread_context *Context, app_state *App, arena *FrameArena, app_offscreen_buffer *Buffer, app_input *Input)
+#define UPDATE_AND_RENDER(Name) b32 Name(thread_context *Context, app_state *App, arena *FrameArena, app_offscreen_buffer *Buffer, app_input *Input)
 typedef UPDATE_AND_RENDER(update_and_render);
 
 

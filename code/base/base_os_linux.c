@@ -35,15 +35,7 @@ struct os_thread
 };
 
 //~ Syscalls
-internal void 
-AssertErrno(b32 Expression)
-{
-    if(!Expression)
-    {
-        int Errno = errno;
-        AssertMsg(0, "errno: %d", Errno);
-    }
-}
+#define AssertErrno(Expression) do { if(!(Expression)) { TrapMsg(ERRNO_FMT, ERRNO_ARG); }; } while(0)
 
 internal str8 
 OS_ReadEntireFileIntoMemory(char *FileName)
@@ -61,8 +53,12 @@ OS_ReadEntireFileIntoMemory(char *FileName)
             AssertErrno(Error != -1);
             
             Result.Size = (umm)StatBuffer.st_size;
-            Result.Data = (u8 *)mmap(0, Result.Size, PROT_READ, MAP_PRIVATE, File, 0);
-            AssertErrno(Result.Data != MAP_FAILED);
+            
+            if(Result.Size != 0)
+            {                
+                Result.Data = (u8 *)mmap(0, Result.Size, PROT_READ, MAP_PRIVATE, File, 0);
+                AssertErrno(Result.Data != MAP_FAILED);
+            }
             
             close(File);
         }

@@ -9,7 +9,7 @@
 # include "ex_platform_windows.cpp"
 #endif
 
-UPDATE_AND_RENDER(UpdateAndRenderStub) {}
+UPDATE_AND_RENDER(UpdateAndRenderStub) { return false; }
 
 #if 1
 #define AppLog(Format, ...) do {if(*Running)Log(Format, ##__VA_ARGS__);} while(0)
@@ -52,7 +52,9 @@ LinuxLoadAppCode(app_code *Code, app_state *AppState, struct timespec *LastWrite
             Code->UpdateAndRender = (update_and_render *)dlsym(*Library, "UpdateAndRender");
             if(Code->UpdateAndRender)
             {
+#if RL_INTERNAL
                 AppState->Reloaded = true;
+#endif
                 Code->Loaded = true;
                 Log("\nLibrary reloaded.\n");
             }
@@ -80,7 +82,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
     if(LaneIndex() == 0)
     {
         arena *PermanentCPUArena = ArenaAlloc(.Size = GB(3));
-        arena *CPUFrameArena = ArenaAlloc();
+        arena *CPUFrameArena = ArenaAlloc(.Size = GB(1));
         
         b32 *Running = PushStruct(PermanentCPUArena, b32);
         *Running = true;
@@ -151,7 +153,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
             OS_ProfileAndPrint("P_Messages", &Profiler);
             
-            Code.UpdateAndRender(ThreadContext, &AppState, CPUFrameArena, &Buffer, NewInput);
+            *Running = *Running &&  !Code.UpdateAndRender(ThreadContext, &AppState, CPUFrameArena, &Buffer, NewInput);
             
             OS_ProfileAndPrint("P_UpdateAndRender", &Profiler);
             

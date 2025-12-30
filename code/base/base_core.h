@@ -106,16 +106,10 @@ Swap(type& A, type& B) { type T = A; A = B; B = T; }
 #endif
 #define DebugBreakOnce do { local_persist b32 X = true; if(X) DebugBreak; X = false; } while(0)
 
-#if RL_INTERNAL
-# define TrapMsg(Format, ...) \
-do { ErrorLog(Format, ##__VA_ARGS__); Trap(); } while(0)
-# define AssertMsg(Expression, Format, ...) \
+# define TrapMsg(Format, ...) do { ErrorLog(Format, ##__VA_ARGS__); Trap(); } while(0)
+#define AssertMsg(Expression, Format, ...) \
 do { if(!(Expression)) TrapMsg(Format, ##__VA_ARGS__); } while(0)
-# define Assert(Expression) AssertMsg(Expression, "Hit assertion")
-#else
-# define AssertMsg(...)     NoOp
-# define Assert(Expression) NoOp
-#endif
+#define Assert(Expression) AssertMsg(Expression, "Hit assertion")
 
 #define NotImplemented TrapMsg("Not Implemented!")
 #define InvalidPath    TrapMsg("Invalid Path!")
