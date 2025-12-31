@@ -3,8 +3,7 @@
 #ifndef OS_H
 #define OS_H
 
-global_variable u8 LogBuffer[KB(64)];
-
+//~ Types
 typedef struct entry_point_params entry_point_params;
 struct entry_point_params
 {
@@ -13,6 +12,18 @@ struct entry_point_params
     char **Args;
 };
 
+typedef struct OS_profiler OS_profiler;
+struct OS_profiler
+{
+    s64 Start;
+    s64 End;
+};
+
+//~ Globals
+global_variable u8 LogBuffer[KB(64)];
+global_variable OS_profiler GlobalProfiler = {}; 
+
+//~ Functions
 #define ENTRY_POINT(Name) void *Name(entry_point_params *Params)
 typedef ENTRY_POINT(entry_point_func);
 
@@ -49,28 +60,19 @@ OS_MSElapsed(s64 Start, s64 End)
     return Result;
 }
 
-typedef struct OS_profiler OS_profiler;
-struct OS_profiler
-{
-    s64 Start;
-    s64 End;
-};
-
-internal OS_profiler
+internal void
 OS_ProfileInit()
 {
-    OS_profiler Result = {0};
-    Result.Start = OS_GetWallClock();
-    Result.End = Result.Start;
-    return Result;
+    GlobalProfiler.Start = OS_GetWallClock();
+    GlobalProfiler.End = GlobalProfiler.Start;
 }
 
 internal void
-OS_ProfileAndPrint(char *Label, OS_profiler *Profiler)
+OS_ProfileAndPrint(char *Label)
 {
-    Profiler->End = OS_GetWallClock();
-    Log(" %s: %.4f\n", Label, OS_MSElapsed(Profiler->Start, Profiler->End));
-    Profiler->Start = Profiler->End;
+    GlobalProfiler.End = OS_GetWallClock();
+    Log(" %s: %.4f\n", Label, OS_MSElapsed(GlobalProfiler.Start, GlobalProfiler.End));
+    GlobalProfiler.Start = GlobalProfiler.End;
 }
 
 #ifndef RL_PROFILE
@@ -78,8 +80,7 @@ OS_ProfileAndPrint(char *Label, OS_profiler *Profiler)
 #endif
 
 #if !RL_PROFILE
-# define OS_ProfileAndPrint(Label, Profiler) NoOp
+# define OS_ProfileAndPrint(Label) NoOp
 #endif
-
 
 #endif //OS_H

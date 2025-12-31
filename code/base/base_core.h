@@ -100,7 +100,7 @@ Swap(type& A, type& B) { type T = A; A = B; B = T; }
 #endif
 
 #if OS_LINUX
-# define DebugBreak    do { if(GlobalDebuggerIsAttached) __asm__ volatile("int3"); } while(0)
+# define DebugBreak do { if(GlobalDebuggerIsAttached) __asm__ volatile("int3"); } while(0)
 #elif OS_WINDOWS
 # define DebugBreak do { if(GlobalDebuggerIsAttached) Trap(); } while(0)
 #endif

@@ -263,7 +263,8 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
             WindowAttributes.event_mask = (StructureNotifyMask | 
                                            KeyPressMask | KeyReleaseMask | 
                                            ButtonPressMask | ButtonReleaseMask |
-                                           EnterWindowMask | LeaveWindowMask);
+                                           EnterWindowMask | LeaveWindowMask |
+                                           PointerMotionMask);
             u64 WindowAttributeMask = CWBitGravity | CWBackPixel | CWColormap | CWEventMask;
             
             // TODO(luca): Query information
@@ -487,6 +488,12 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                     KeySym Symbol = XLookupKeysym(&WindowEvent.xkey, 0);
                     b32 IsDown = (WindowEvent.type == KeyPress);
                     
+                    
+                    b32 Alt = (WindowEvent.xkey.state & Mod1Mask);
+                    b32 Shift  = (WindowEvent.xkey.state & ShiftMask);
+                    b32 Control = (WindowEvent.xkey.state & ControlMask);
+                    
+                    
                     // TODO(luca): Refresh mappings.
                     // NOTE(luca): Only KeyPress events  see man page of Xutf8LookupString().  And skip filtered events for text input, but keep them for controller.
                     if(IsDown && !FilteredEvent)
@@ -511,34 +518,25 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                 
                                 Codepoint = ConvertUTF8StringToRune(LookupBuffer);
                                 
-                                // NOTE(luca): Input methods might produce non printable characters (< ' ').  If this
-                                // happens we try to "decompose" the key input.
-                                if(Codepoint < ' ' && Codepoint >= 0)
-                                {
-                                    if(Symbol >= XK_space)
-                                    {
-                                        Codepoint = (char)(' ' + (Symbol - XK_space));
-                                    }
-                                }
-                                
-                                // NOTE(luca): Since this is only for text input we pass Return and Backspace as codepoints.
+                                // NOTE(luca): Input methods might produce non printable characters (< ' '). 
                                 if(Codepoint >= ' ' || Codepoint < 0)
                                 {                            
                                     app_text_button *Button = &Input->Text.Buffer[Input->Text.Count];
                                     *Button = {};
                                     Input->Text.Count += 1;
                                     Button->Codepoint = Codepoint;
-                                    Button->Shift   = (WindowEvent.xkey.state & ShiftMask);
-                                    Button->Control = (WindowEvent.xkey.state & ControlMask);
-                                    Button->Alt     = (WindowEvent.xkey.state & Mod1Mask);
-#if 0                           
+                                    
+                                    if(Shift)   Button->Modifiers |= PlatformKeyModifier_Shift;
+                                    if(Control) Button->Modifiers |= PlatformKeyModifier_Control;
+                                    if(Alt)     Button->Modifiers |= PlatformKeyModifier_Alt;
+                                    
+#if 0
                                     Log("%d bytes '%c' %d (%c|%c|%c)\n", 
                                         BytesLookepdUp, 
-                                        ((Codepoint >= ' ') ? (char)Codepoint : '\0'),
-                                        Codepoint,
-                                        ((WindowEvent.xkey.state & ShiftMask)   ? 'S' : ' '),
-                                        ((WindowEvent.xkey.state & ControlMask) ? 'C' : ' '),
-                                        ((WindowEvent.xkey.state & Mod1Mask)    ? 'A' : ' '));
+                                        (((char)Codepoint) >= ' ' ? (char)Codepoint : '\0'), Codepoint,
+                                        ((Shift)   ? 'S' : ' '),
+                                        ((Control) ? 'C' : ' '),
+                                        ((Alt)     ? 'A' : ' '));
 #endif
                                 }
                                 else
@@ -609,7 +607,8 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                     Symbol == XK_Control_L ||
                                     Symbol == XK_Control_R ||
                                     Symbol == XK_Num_Lock ||
-                                    Symbol == XK_Caps_Lock) 
+                                    Symbol == XK_Caps_Lock ||
+                                    Symbol == XK_ISO_Level3_Shift) 
                             {
                                 Input->Text.Count -= 1;
                             }
@@ -623,16 +622,23 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                             
                         }
                     }
-                    else if((WindowEvent.xkey.state & Mod1Mask) && 
-                            (Symbol == XK_F4))
+                    
+                    // NOTE(luca): Always process these
+                    
+                    if(0) {}
+                    else if(Alt && (Symbol == XK_F2))
                     {
-                        *Running = false;
+                        DebugBreak;
                     }
-                    else if((WindowEvent.xkey.state & Mod1Mask) && 
-                            (Symbol == XK_F3))
+                    else if(Alt && (Symbol == XK_F3))
                     {
                         Trap();
                     }
+                    else if(Alt && (Symbol == XK_F4))
+                    {
+                        *Running = false;
+                    }
+                    
                 } break;
                 
                 case ButtonPress:
@@ -664,12 +670,24 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                     }
                 } break;
                 
+                case MotionNotify:
+                {
+                    XMotionEvent *Event = (XMotionEvent *)&WindowEvent;
+                    
+                    if(Event->x >= 0 && Event->x < Buffer->Width &&
+                       Event->y >= 0 && Event->y < Buffer->Height)
+                    {                    
+                        Input->MouseX = Event->x;
+                        Input->MouseY = Event->y;
+                    }
+                    
+                } break;
+                
                 case ConfigureNotify:
                 {
                     XConfigureEvent *Event = (XConfigureEvent *)&WindowEvent;
                     Buffer->Width = Event->width;
                     Buffer->Height = Event->height;
-                    //DebugBreak;
                 } break;
                 
                 case DestroyNotify:
@@ -701,26 +719,6 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                     //LinuxShowCursor(DisplayHandle, WindowHandle);
                 } break;
                 
-            }
-        }
-        
-        // Window could have been closed
-        if(*Running)
-        {        
-            // TODO(luca): Move this into process pending messages.
-            s32 MouseX = 0, MouseY = 0, MouseZ = 0;
-            u32 MouseMask = 0;
-            u64 Ignored;
-            if(XQueryPointer(Linux->DisplayHandle, Linux->WindowHandle, 
-                             &Ignored, &Ignored, (int *)&Ignored, (int *)&Ignored,
-                             &MouseX, &MouseY, &MouseMask))
-            {
-                if(MouseX <= Buffer->Width && MouseX >= 0 &&
-                   MouseY <= Buffer->Height && MouseY >= 0)
-                {
-                    Input->MouseY = MouseY;
-                    Input->MouseX = MouseX;
-                }
             }
         }
 	}

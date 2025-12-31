@@ -53,6 +53,18 @@ enum platform_key
 };
 typedef enum platform_key platform_key;
 
+enum platform_key_modifier
+{
+    PlatformKeyModifier_None    = 0,
+    PlatformKeyModifier_Shift   = (1 << 0),
+    PlatformKeyModifier_Control = (1 << 1),
+    PlatformKeyModifier_Alt     = (1 << 2),
+    PlatformKeyModifier_All     = (PlatformKeyModifier_Shift | 
+                                   PlatformKeyModifier_Control |
+                                   PlatformKeyModifier_Alt),
+};
+typedef enum platform_key_modifier platform_key_modifier;
+
 typedef struct app_text_button app_text_button;
 struct app_text_button
 {
@@ -61,10 +73,7 @@ struct app_text_button
         rune Codepoint;
         platform_key Symbol;
     };
-    // TODO(luca): Use flag and bits.
-    b32 Control;
-    b32 Shift;
-    b32 Alt;
+    s32 Modifiers;
     b32 IsSymbol;
 };
 
@@ -118,12 +127,13 @@ WasPressed(app_button_state State)
 }
 
 internal inline b32
-CharPressed(app_input *Input, rune Codepoint)
+CharPressed(app_input *Input, rune Codepoint, s32 Modifiers)
 {
     b32 Pressed = false;
     for EachIndex(Idx, Input->Text.Count)
     {
-        if(Input->Text.Buffer[Idx].Codepoint == Codepoint)
+        if(Input->Text.Buffer[Idx].Codepoint == Codepoint && 
+           Input->Text.Buffer[Idx].Modifiers & Modifiers)
         {
             Pressed = true;
             break;

@@ -124,9 +124,11 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         LinuxLoadAppCode(&Code, &AppState, &LastWriteTime, &LibraryHandle);
 #endif
         
+        b32 Paused = false;
+        
         while(*Running)
         {
-            OS_profiler Profiler = OS_ProfileInit();
+            OS_ProfileInit();
             
             umm CPUBackPos = BeginScratch(CPUFrameArena);
             
@@ -141,25 +143,30 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 NewInput->dtForFrame = TargetSecondsPerFrame;
             }
             
-            OS_ProfileAndPrint("P_InitSetup", &Profiler);
+            OS_ProfileAndPrint("P_InitSetup");
             
 #if OS_LINUX      
             // Load application code
             LinuxLoadAppCode(&Code, &AppState, &LastWriteTime, &LibraryHandle);
-            OS_ProfileAndPrint("P_Code", &Profiler);
+            OS_ProfileAndPrint("P_Code");
 #endif
             
             P_ProcessMessages(PlatformContext, NewInput, &Buffer, Running);
             
-            OS_ProfileAndPrint("P_Messages", &Profiler);
+            OS_ProfileAndPrint("P_Messages");
             
-            *Running = *Running &&  !Code.UpdateAndRender(ThreadContext, &AppState, CPUFrameArena, &Buffer, NewInput);
+            if(CharPressed(NewInput, 'p', PlatformKeyModifier_Alt)) Paused = !Paused;
             
-            OS_ProfileAndPrint("P_UpdateAndRender", &Profiler);
+            if(!Paused)
+            {
+                *Running = *Running &&  !Code.UpdateAndRender(ThreadContext, &AppState, CPUFrameArena, &Buffer, NewInput);
+            }
+            
+            OS_ProfileAndPrint("P_UpdateAndRender");
             
             P_UpdateImage(PlatformContext, &Buffer);
             
-            OS_ProfileAndPrint("P_UpdateImage", &Profiler);
+            OS_ProfileAndPrint("P_UpdateImage");
             
             s64 WorkCounter = OS_GetWallClock();
             f32 WorkMSPerFrame = OS_MSElapsed(LastCounter, WorkCounter);
@@ -215,9 +222,14 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             AppLog("\n");
 #endif
             
+#if RL_PROFILE
+            // TODO(luca): Sometimes we hit more than 4ms/f
+            if(WorkMSPerFrame >= 4000.0f) DebugBreakOnce;
+#endif
+            
             Swap(OldInput, NewInput);
             
-            OS_ProfileAndPrint("P_Sleep", &Profiler);
+            OS_ProfileAndPrint("P_Sleep");
             
             FlipWallClock = OS_GetWallClock();
             

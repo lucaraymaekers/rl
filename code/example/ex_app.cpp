@@ -369,7 +369,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
 {
     b32 ShouldQuit = false;
     
-    OS_profiler Profiler = OS_ProfileInit();
+    OS_ProfileInit();
     
     ThreadContextSelect(Context);
     
@@ -400,7 +400,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         GLADDisableCallbacks();
 #endif
     }
-    OS_ProfileAndPrint("Init", &Profiler);
+    OS_ProfileAndPrint("Init");
     
     local_persist b32 Animate = true;
     
@@ -565,7 +565,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             }
         }
         OS_FreeFileMemory(In);
-        OS_ProfileAndPrint("Obj read", &Profiler);
+        OS_ProfileAndPrint("Obj read");
     }
     
     s32 Major, Minor;
@@ -646,7 +646,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glDeleteProgram(ShaderProgram);
     }
     
-    OS_ProfileAndPrint("GL", &Profiler);
+    OS_ProfileAndPrint("GL");
     
     return ShouldQuit;
 }
