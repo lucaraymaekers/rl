@@ -59,9 +59,7 @@ enum platform_key_modifier
     PlatformKeyModifier_Shift   = (1 << 0),
     PlatformKeyModifier_Control = (1 << 1),
     PlatformKeyModifier_Alt     = (1 << 2),
-    PlatformKeyModifier_All     = (PlatformKeyModifier_Shift | 
-                                   PlatformKeyModifier_Control |
-                                   PlatformKeyModifier_Alt),
+    PlatformKeyModifier_Any     = (1 << 3),
 };
 typedef enum platform_key_modifier platform_key_modifier;
 
@@ -132,8 +130,20 @@ CharPressed(app_input *Input, rune Codepoint, s32 Modifiers)
     b32 Pressed = false;
     for EachIndex(Idx, Input->Text.Count)
     {
-        if(Input->Text.Buffer[Idx].Codepoint == Codepoint && 
-           Input->Text.Buffer[Idx].Modifiers & Modifiers)
+        app_text_button Key = Input->Text.Buffer[Idx];
+        b32 ModifiersMatch = ((Modifiers == PlatformKeyModifier_Any) ||
+                              (Key.Modifiers == Modifiers));
+        
+        if((Key.Modifiers & PlatformKeyModifier_Shift) && 
+           (Key.Codepoint >= L'A' && Key.Codepoint <= L'Z'))
+        {
+            Key.Codepoint += 32;
+        }
+        
+        if(Codepoint >= L'A' && Codepoint <= L'Z') Codepoint += 32;
+        
+        
+        if(Key.Codepoint == Codepoint && ModifiersMatch)
         {
             Pressed = true;
             break;
@@ -156,8 +166,8 @@ struct app_state
     
 #if RL_INTERNAL
     b32 DebuggerAttached;
-    b32 Reloaded;
 #endif
+    b32 Reloaded;
     
     b32 Initialized;
 };

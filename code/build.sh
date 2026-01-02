@@ -13,18 +13,20 @@ clang=1
 gcc=0
 debug=1
 release=0
+personal=0
 
 # Targets
 hash=0
 samples=0
 cuversine=0
-ex_app=0
-ex_sort=0
-ex_gl=0
-Targets="hash/samples/cuversine/ex_[sort/app/gl]\n"
+example=0
+app=0
+sort=0
+gl=0
+Targets="hash/samples/cuversine/example [sort/app/gl]\n"
 
 # Default
-[ "$#" = 0 ] && ex_app=1
+[ "$#" = 0 ] && example=1 && app=1
 
 for Arg in "$@"; do eval "$Arg=1"; done
 # Exclusive flags
@@ -34,6 +36,8 @@ for Arg in "$@"; do eval "$Arg=1"; done
 [ "$debug"   = 1 ] && printf '[debug mode]\n'
 [ "$release" = 1 ] && printf '[release mode]\n'
 mkdir -p "$Build"
+
+[ -f "./base/base_build.h" ] && personal=1
 
 CU_Compile()
 {
@@ -76,16 +80,12 @@ CU_Compile()
  -Xcompiler -Wno-unused-function
  -Xcompiler -Wno-missing-field-initializers
  "
- DebugFlags="
-	-g
-	-lineinfo -src-in-ptx
-	-DRL_INTERNAL=1 -DRL_SLOW=1
-	"
+ DebugFlags="-g -lineinfo -src-in-ptx"
  ReleaseFlags="-O3"
 
- [ "$debug"   = 1 ] && Flags="$Flags $DebugFlags"
- [ "$release" = 1 ] && Flags="$Flags $ReleaseFlags"
- 
+ [ "$debug"    = 1 ] && Flags="$Flags $DebugFlags"
+ [ "$release"  = 1 ] && Flags="$Flags $ReleaseFlags"
+ [ "$personal" = 1 ] && Flags="$Flags -DRL_PERSONAL=1" 
  Flags="$Flags $WarningFlags"
 
  printf '%s\n' "$Source"
@@ -98,7 +98,7 @@ CU_Compile()
 
 C_Compile()
 {
- Source="$1"
+ SourceFiles="$1"
  Out="$2"
 
  Flags="${3:-}"
@@ -111,7 +111,7 @@ C_Compile()
  CommonWarningFlags="-Wall -Wextra -Wconversion -Wdouble-promotion -Wno-sign-conversion -Wno-sign-compare -Wno-double-promotion -Wno-unused-but-set-variable -Wno-unused-variable -Wno-write-strings -Wno-pointer-arith -Wno-unused-parameter -Wno-unused-function -Wno-missing-field-initializers"
  LinkerFlags=""
 
- DebugFlags="-g -ggdb -g3 -DRL_INTERNAL=1 -DRL_SLOW=1 -DRL_PROFILE=1"
+ DebugFlags="-g -ggdb -g3"
  ReleaseFlags="-O3"
 
  ClangFlags="-fdiagnostics-absolute-paths -fsanitize-undefined-trap-on-error -ftime-trace
@@ -122,14 +122,20 @@ C_Compile()
  Flags="$CommonCompilerFlags $Flags"
  [ "$debug"   = 1 ] && Flags="$Flags $DebugFlags"
  [ "$release" = 1 ] && Flags="$Flags $ReleaseFlags"
+ [ "$personal" = 1 ] && Flags="$Flags -DRL_PERSONAL=1"
  Flags="$Flags $CommonWarningFlags"
  [ "$clang" = 1 ] && Flags="$Flags $ClangFlags"
  [ "$gcc"   = 1 ] && Flags="$Flags $GCCFlags"
  Flags="$Flags $LinkerFlags"
 
- printf '%s\n' "$Source"
- $Compiler $Flags "$(readlink -f "$Source")" -o "$Build"/"$Out"
- $Compiler $Flags "$(readlink -f "$Source")" -o "$Build"/"$Out"
+ printf '%s\n' "$SourceFiles"
+
+ Source=
+ for File in $SourceFiles
+ do Source="$Source $(readlink -f "$File")"
+ done
+ 
+ $Compiler $Flags $Source -o "$Build"/"$Out"
 
  DidWork=1
 }
@@ -159,16 +165,21 @@ then
  CU_Compile $(Strip ./cuversine/platform.cpp) "-lX11"
 fi
 
-Platform=0
 AppCompile()
 {
- C_Compile "$1" app.so "-fPIC --shared -lm -DBASE_NO_ENTRYPOINT=1"
+ Source="$1"
+ C_Compile "$Source" app.so "-fPIC --shared -lm -DBASE_NO_ENTRYPOINT=1"
  Platform=1
 }
-[ "$ex_app"  = 1 ] && AppCompile ./example/ex_app.cpp 
-[ "$ex_sort" = 1 ] && AppCompile ./example/ex_app_sort.cpp 
-[ "$ex_gl"   = 1 ] && AppCompile ./example/ex_app_gl.cpp 
-[ "$Platform"     = 1 ] && C_Compile $(Strip ./example/ex_platform.cpp) "-lX11 -lGL -lGLX"
+
+if [ "$example" = 1 ]
+then
+ Platform=0
+ [ "$app"  = 1 ] && AppCompile ./example/ex_app.cpp
+ [ "$sort" = 1 ] && AppCompile ./example/ex_app_sort.cpp
+ [ "$gl"   = 1 ] && AppCompile ./example/ex_app_gl.cpp
+ [ "$Platform" = 1 ] && C_Compile "./example/ex_platform.cpp" ex_platform "-lX11 -lGL -lGLX"
+fi
 
 #- End
 

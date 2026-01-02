@@ -52,9 +52,7 @@ LinuxLoadAppCode(app_code *Code, app_state *AppState, struct timespec *LastWrite
             Code->UpdateAndRender = (update_and_render *)dlsym(*Library, "UpdateAndRender");
             if(Code->UpdateAndRender)
             {
-#if RL_INTERNAL
                 AppState->Reloaded = true;
-#endif
                 Code->Loaded = true;
                 Log("\nLibrary reloaded.\n");
             }

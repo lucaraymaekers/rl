@@ -222,7 +222,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
     
     local_persist b32 SelectedSort = 1;
-    if(CharPressed(Input, 's'))
+    if(CharPressed(Input, 's', PlatformKeyModifier_Any))
     {
         SelectedSort = !SelectedSort;
     }
@@ -284,4 +284,5 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
     }
     
+    return false;
 }

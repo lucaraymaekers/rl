@@ -144,6 +144,7 @@ internal P_context
 P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
 {
     b32 OpenGLMode = true;
+    
     P_context Result = 0;
     s32 XRet = 0;
     char *WindowName = "Handmade Window";
@@ -550,6 +551,18 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                     else if(Symbol == XK_Tab)       Button->Symbol = PlatformKey_Tab;
                                     else if(Symbol == XK_Return)    Button->Symbol = PlatformKey_Return;
                                     else if(Symbol == XK_BackSpace) Button->Symbol = PlatformKey_BackSpace;
+                                    
+                                    else if(Symbol >= XK_space && Symbol <= XK_asciitilde)
+                                    {
+                                        Button->IsSymbol = false;
+                                        
+                                        if(Shift)   Button->Modifiers |= PlatformKeyModifier_Shift;
+                                        if(Control) Button->Modifiers |= PlatformKeyModifier_Control;
+                                        if(Alt)     Button->Modifiers |= PlatformKeyModifier_Alt;
+                                        
+                                        Button->Codepoint = ((rune)(Symbol - XK_space) + L' ');
+                                    }
+                                    
                                     else
                                     {
                                         Input->Text.Count -= 1;;

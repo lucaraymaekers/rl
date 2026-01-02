@@ -30,19 +30,18 @@ typedef s32 face[4][3];
 //~ Constants
 
 // AA BB GG RR
-
 #define ColorText          0xff87bfcf
-#define ColorButtonText    0xFFFBFDFE
 #define ColorPoint         0xFF00FFFF
 #define ColorCursor        0xFFFF0000
-#define ColorCursorPressed ColorPoint
 #define ColorButton        0xFF0172AD
 #define ColorButtonHovered 0xFF017FC0
 #define ColorButtonPressed 0xFF0987C8
+#define ColorButtonText    0xFFFBFDFE
 #define ColorBackground    0xFF13171F
-#define ColorMapBackground 0xFF3A4151
+#define ColorBackgroundSecond 0xFF3A4151
 
-#define HexToRGBV3(Hex) ((f32)((Hex >> 8*2) & 0xFF)/255.0f), \
+#define HexToRGBV3(Hex) \
+((f32)((Hex >> 8*2) & 0xFF)/255.0f), \
 ((f32)((Hex >> 8*1) & 0xFF)/255.0f), \
 ((f32)((Hex >> 8*0) & 0xFF)/255.0f)
 
@@ -380,13 +379,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
     local_persist s32 GLADVersion = 0;
     // Init
     {    
-#if RL_INTERNAL    
         if(App->Initialized && App->Reloaded)
         {
             GLADVersion = gladLoaderLoadGL();
             App->Reloaded = false;
         }
-#endif
         
         if(!App->Initialized)
         {
@@ -627,15 +624,15 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // Drawing
     {    
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glClearColor(HexToRGBV3(ColorMapBackground), 0.0f);
+        glClearColor(HexToRGBV3(ColorBackgroundSecond), 0.0f);
         glPointSize(10.0f);
+        glLineWidth(1.0f);
         
-#if 1
         for EachIndexType(u32, Idx, Count/4)
         {
-            glDrawArrays(GL_LINE_LOOP, Idx*4, 3);
+            // TODO(luca): This depends on the number of vertexes per face.  Blockbench always produces 4.  But other models like suzanne, might only produce 3.  So we can modify the last parameter of `glDrawArrays` accordingly.  But it would be more robust to have each face save the number of vertices processed.
+            glDrawArrays(GL_LINE_LOOP, Idx*4, 4);
         }
-#endif
         
     }
     

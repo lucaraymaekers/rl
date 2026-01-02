@@ -42,10 +42,10 @@ typedef s32 face[4][3];
 #define ColorBackground    0xFF13171F
 #define ColorMapBackground 0xFF3A4151
 
-#define HexToRGBV3(Hex) ((f32)((Hex >> 8*2) & 0xFF)/255.0f), \
+#define HexToRGBV3(Hex) \
+((f32)((Hex >> 8*2) & 0xFF)/255.0f), \
 ((f32)((Hex >> 8*1) & 0xFF)/255.0f), \
 ((f32)((Hex >> 8*0) & 0xFF)/255.0f)
-
 
 //~ Math
 internal vertex 
@@ -127,7 +127,7 @@ CompileShaderFromSource(str8 Source, s32 Type)
 C_LINKAGE 
 UPDATE_AND_RENDER(UpdateAndRender)
 {
-    OS_profiler Profiler = OS_ProfileInit();
+    OS_ProfileInit();
     
     ThreadContextSelect(Context);
     
@@ -138,13 +138,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
     local_persist s32 GLADVersion = 0;
     // Init
     {    
-#if RL_INTERNAL    
         if(App->Initialized && App->Reloaded)
         {
             GLADVersion = gladLoaderLoadGL();
             App->Reloaded = false;
         }
-#endif
         
         if(!App->Initialized)
         {
@@ -158,14 +156,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
         GLADDisableCallbacks();
 #endif
     }
-    OS_ProfileAndPrint("Init", &Profiler);
+    OS_ProfileAndPrint("Init");
     
     //Input 
     for EachIndex(Idx, Input->Text.Count)
     {
         app_text_button Key = Input->Text.Buffer[Idx];
         
-        if(Key.Codepoint == 'a') App->Offset = 0.0f;
+        if(Key.Codepoint == 'a') App->XOffset = 0.0f;
     }
     
     s32 Major, Minor;
@@ -231,29 +229,31 @@ UPDATE_AND_RENDER(UpdateAndRender)
         0, 3, 7, 4,
     };
     
-    App->Offset += Input->dtForFrame;
+    App->XOffset += Input->dtForFrame;
     
     GLint PosAttrib = glGetAttribLocation(ShaderProgram, "pos");
     glEnableVertexAttribArray(PosAttrib);
     glVertexAttribPointer(PosAttrib, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), 0);
     
-    f32 Angle = Pi32 * App->Offset;
+    f32 Angle = Pi32 * App->XOffset;
     vertex Color = {cosf(Angle*2.0f), 0.5f, 0.0f};
+    
+    Log("Offset: %.4f\n", Angle);
     
     GLint UAngle = glGetUniformLocation(ShaderProgram, "angle");
     GLint UColor = glGetUniformLocation(ShaderProgram, "color");
-    glUniform1f(UAngle, Angle);
+    glUniform2f(UAngle, Angle, 0.25f*Pi32);
     glUniform3f(UColor, Color.X, Color.Y, Color.Z);
     
     glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
     
     b32 Fill = true;
     s32 Mode = (Fill) ? GL_FILL : GL_LINE;
-    glPolygonMode(GL_FRONT_AND_BACK, Mode);;
+    glPolygonMode(GL_FRONT_AND_BACK, Mode);
     
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(HexToRGBV3(ColorMapBackground), 0.0f);
-    glPointSize(10.0f);
+    glLineWidth(2.0f);
     
     for EachIndex(Idx, 4)
     {
@@ -264,5 +264,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     glDeleteVertexArrays(1, &VAO);
     glDeleteProgram(ShaderProgram);
     
-    OS_ProfileAndPrint("GL", &Profiler);
+    OS_ProfileAndPrint("GL");
+    
+    return false;
 }

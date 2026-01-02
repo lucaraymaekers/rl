@@ -30,7 +30,7 @@ void main()
 {
     Color = color;
     
-#if 1    
+#if 1   
     float x, y, z;;
     
     vec3 inc = rotate(pos.yxz, angle.y).yxz;
