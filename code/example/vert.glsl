@@ -1,24 +1,29 @@
 #version 330 core
 
-layout (location = 0) in vec3 pos;
+#define v2 vec2
+#define v3 vec3
+#define v4 vec4 
+#define f32 float
 
-uniform vec3 color;
-uniform vec2 angle;
+layout (location = 0) in v3 pos;
 
-out vec3 Color;
+uniform v3 color;
+uniform v2 angle;
 
-float deg2rad(float degrees)
+out v3 Color;
+
+f32 deg2rad(f32 degrees)
 {
-    float Result = degrees*3.14159265359f/180.0f;
+    f32 Result = degrees*3.14159265359f/180.0f;
     return Result;
 }
 
-vec3 rotate(vec3 Pos, float Angle)
+v3 rotate(v3 Pos, f32 Angle)
 {
-    vec3 Result;
+    v3 Result;
     
-    float c = cos(Angle);
-    float s = sin(Angle);
+    f32 c = cos(Angle);
+    f32 s = sin(Angle);
     Result.x = Pos.x*c - Pos.z*s;
     Result.z = Pos.x*s + Pos.z*c;
     Result.y = Pos.y;
@@ -31,18 +36,18 @@ void main()
     Color = color;
     
 #if 1   
-    float x, y, z;;
+    f32 x, y, z;;
     
-    vec3 inc = rotate(pos.yxz, angle.y).yxz;
-    vec3 rot = rotate(inc, angle.x);
+    v3 inc = rotate(pos.yxz, angle.y).yxz;
+    v3 rot = rotate(inc, angle.x);
     x = rot.x;
     y = rot.y;
     z = rot.z;
     
-    float depth = z + 5.0;
-    gl_Position = vec4(x/depth, y/depth, z, 1.0);
+    f32 depth = z + 3.0;
+    gl_Position = v4(x/depth, y/depth, 0.0, 1.0);
 #else
-    gl_Position = vec4(pos, 1.0f);
+    gl_Position = v4(pos, 1.0f);
 #endif
     
 }

@@ -167,18 +167,17 @@ fi
 
 AppCompile()
 {
- Source="$1"
- C_Compile "$Source" app.so "-fPIC --shared -lm -DBASE_NO_ENTRYPOINT=1"
- Platform=1
+ Dir="$1"
+	PlatformFlags="-lX11 -lGL -lGLX"
+ C_Compile "$Dir"/ex_app.cpp app.so "-fPIC --shared -lm -DBASE_NO_ENTRYPOINT=1"
+	C_Compile $(Strip $Dir/ex_platform.cpp) "$PlatformFlags"
 }
 
 if [ "$example" = 1 ]
 then
- Platform=0
- [ "$app"  = 1 ] && AppCompile ./example/ex_app.cpp
- [ "$sort" = 1 ] && AppCompile ./example/ex_app_sort.cpp
- [ "$gl"   = 1 ] && AppCompile ./example/ex_app_gl.cpp
- [ "$Platform" = 1 ] && C_Compile "./example/ex_platform.cpp" ex_platform "-lX11 -lGL -lGLX"
+ [ "$app"  = 1 ] && AppCompile ./example
+ [ "$sort" = 1 ] && AppCompile ./example/sort
+ [ "$gl"   = 1 ] && AppCompile ./example/gl
 fi
 
 #- End

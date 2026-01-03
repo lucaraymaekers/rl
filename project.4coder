@@ -22,11 +22,11 @@ blacklist_patterns =
 
 paths = 
 {
-    { .path = ".",           .recursive = false, .relative = true, },
-    { .path = "code",        .recursive = false, .relative = true, },
-    { .path = "code/base",   .recursive = true,  .relative = true, },
-    { .path = "code/lib",    .recursive = true,  .relative = true, },
-    { .path = "code/example",.recursive = true,  .relative = true, },
+    { .path = ".",            .recursive = false, .relative = true, },
+    { .path = "code",         .recursive = false, .relative = true, },
+    { .path = "code/base",    .recursive = true,  .relative = true, },
+    { .path = "code/lib",     .recursive = true,  .relative = true, },
+    { .path = "code/example/gl", .recursive = false, .relative = true, },
 };
 
 load_paths =

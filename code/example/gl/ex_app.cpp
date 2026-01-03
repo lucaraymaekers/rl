@@ -7,7 +7,9 @@
 NO_WARNINGS_BEGIN
 #define STB_IMAGE_IMPLEMENTATION
 #include "lib/stb_image.h"
+#include "lib/handmade_font.h"
 NO_WARNINGS_END
+
 
 typedef struct vertex vertex;
 struct vertex
@@ -170,6 +172,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         if(Key.Codepoint == 'r') App->XOffset = 0.0f;
         if(Key.Codepoint == 'a') Animate = !Animate;
+        if(!Animate && Key.Codepoint == 'i') App->XOffset += Input->dtForFrame;
     }
     
     if(Animate)
@@ -184,7 +187,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     glViewport(0, 0, Buffer->Width, Buffer->Height);
     
     GLfloat Vertices[] = {
-        //  Position      Color             Texcoords
+        //Position    Color             Texcoords
         -0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, // Top-left
         0.5f,   0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, // Top-right
         0.5f,  -0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, // Bottom-right
@@ -219,8 +222,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     GLuint ShaderProgram;
     {    
-        str8 VertexShaderSource = OS_ReadEntireFileIntoMemory("./code/example/vert_gl.glsl");
-        str8 FragmentShaderSource = OS_ReadEntireFileIntoMemory("./code/example/frag_gl.glsl");
+        str8 VertexShaderSource = OS_ReadEntireFileIntoMemory("./code/example/gl/vert.glsl");
+        str8 FragmentShaderSource = OS_ReadEntireFileIntoMemory("./code/example/gl/frag.glsl");
         GLuint VertexShader = CompileShaderFromSource(VertexShaderSource, GL_VERTEX_SHADER);
         GLuint FragmentShader = CompileShaderFromSource(FragmentShaderSource, GL_FRAGMENT_SHADER);
         ShaderProgram = glCreateProgram();
@@ -240,7 +243,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     GLint PosAttrib; 
     {
-        PosAttrib = glGetAttribLocation(ShaderProgram, "Pos");
+        PosAttrib = glGetAttribLocation(ShaderProgram, "InPos");
         glEnableVertexAttribArray(PosAttrib);
         glVertexAttribPointer(PosAttrib, 2, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), 0);
     }
@@ -319,15 +322,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     // Shader input
     {    
-        f32 Angle = Pi32 * App->XOffset;
-        vertex Color = {cosf(Angle*2.0f), 0.5f, 0.0f};
-        
-        GLuint UAngle = glGetUniformLocation(ShaderProgram, "Angle");
-#if 0
-        glUniform2f(UAngle, Angle, 0.25f*Pi32);
-#else
-        glUniform2f(UAngle, Angle, Pi32);
-#endif
+        f32 Time = Pi32 * App->XOffset;
+        GLuint UTime = glGetUniformLocation(ShaderProgram, "Time");
+        glUniform1f(UTime, Time);
     }
     
     // Draw
