@@ -274,8 +274,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
             else
             {
                 Color = ((0xFF << 3*8) |
-                         (0x0 << 2*8) |
-                         ((Gray & 0xFF) << 1*8) |
+                         (Gray << 2*8) |
+                         ((0x0 & 0xFF) << 1*8) |
                          (0x0 << 0*8)); 
             }
             

@@ -39,41 +39,17 @@ internal void *OS_Allocate(umm Size);
 internal void  OS_BarrierWait(barrier Barrier);
 internal s64   OS_GetWallClock(void);
 internal void  OS_Sleep(u32 MicroSeconds);
-
+//- OS agnostic, implemented in `base_os.c`.
+internal inline f32 OS_SecondsElapsed(s64 Start, s64 End);
+internal inline f32 OS_MSElapsed(s64 Start, s64 End);
+internal void OS_ProfileInit();
+internal void OS_ProfileAndPrint(char *Label);
 
 #define Log(Format, ...)      OS_PrintFormat((char *)(Format), ##__VA_ARGS__)
 // NOTE(luca): Append '\n', because this macro might be redefined into a visual error log.
 #define ErrorLog(Format, ...) Log(ERROR_FMT Format "\n", ERROR_ARG, ##__VA_ARGS__) 
 
 //- Helpers 
-internal inline f32
-OS_SecondsElapsed(s64 Start, s64 End)
-{
-    f32 Result = ((f32)(End - Start)/1000000000.0f);
-    return Result;
-}
-
-internal inline f32
-OS_MSElapsed(s64 Start, s64 End)
-{
-    f32 Result = ((f32)(End - Start)/1000000.0f);
-    return Result;
-}
-
-internal void
-OS_ProfileInit()
-{
-    GlobalProfiler.Start = OS_GetWallClock();
-    GlobalProfiler.End = GlobalProfiler.Start;
-}
-
-internal void
-OS_ProfileAndPrint(char *Label)
-{
-    GlobalProfiler.End = OS_GetWallClock();
-    Log(" %s: %.4f\n", Label, OS_MSElapsed(GlobalProfiler.Start, GlobalProfiler.End));
-    GlobalProfiler.Start = GlobalProfiler.End;
-}
 
 #ifndef RL_PROFILE
 # define RL_PROFILE 0

@@ -1,6 +1,13 @@
-#ifndef HANDMADE_FONT_H
-#define HANDMADE_FONT_H
-#include "stb_truetype.h"
+#ifndef RL_FONT_H
+#define RL_FONT_H
+
+#ifdef STB_TRUETYPE_IMPLEMENTATION
+# undef STB_TRUETYPE_IMPLEMENTATION
+#endif
+#ifndef STB_TRUETYPE_INCLUDE_PATH
+# define STB_TRUETYPE_INCLUDE_PATH "stb_truetype.h"
+#endif
+#include STB_TRUETYPE_INCLUDE_PATH
 
 typedef struct v2 v2;
 struct v2
@@ -60,16 +67,12 @@ internal void DrawTextInBox(arena *Arena, app_offscreen_buffer *Buffer, app_font
                             v2 BoxMin, v2 BoxMax, b32 Centered);
 internal void DrawTextFormat(arena *Arena, app_offscreen_buffer *Buffer, app_font *Font, 
                              f32 X, f32 Y, u32 Color, char *Format, ...);
-#endif //HANDMADE_FONT_H
+#endif //RL_FONT_H
 
-#ifdef HANDMADE_FONT_IMPLEMENTATION
+#ifdef RL_FONT_IMPLEMENTATION
 //~ Libraries
 #include <stdlib.h>
 
-#define STB_TRUETYPE_IMPLEMENTATION
-#include "stb_truetype.h"
-
-//~ Implementation
 //- Loading  
 internal void
 InitFont(app_font *Font, char *FilePath)
@@ -188,7 +191,7 @@ DrawText(app_offscreen_buffer *Buffer, app_font *Font, f32 HeightPixels,
     
     f32 FontScale = stbtt_ScaleForPixelHeight(&Font->Info, HeightPixels);
     
-    for(EachIndex(Idx, Text.Size))
+    for EachIndex(Idx, Text.Size)
     {
         rune CharAt = (IsUTF8 ? ((rune *)Text.Data)[Idx] : Text.Data[Idx]);
         
@@ -379,7 +382,7 @@ DrawTextInBox(arena *Arena, app_offscreen_buffer *Buffer, app_font *Font,
     if(DoCenter)
     {                
         s32 TextWidth = 0;
-        for(EachIndex(Idx, Text.Size))
+        for EachIndex(Idx, Text.Size)
         {
             TextWidth += CharacterPixelWidths[Idx];
         }
@@ -413,4 +416,4 @@ DrawTextFormat(arena *Arena, app_offscreen_buffer *Buffer, app_font *Font,
     EndScratch(Arena, BackPos);
 }
 
-#endif //HANDMADE_FONT_IMPLEMENTATION
+#endif //RL_FONT_IMPLEMENTATION

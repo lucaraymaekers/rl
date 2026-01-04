@@ -1,15 +1,18 @@
 #include "base/base.h"
 #include "ex_platform.h"
 
-#define GLAD_GL_IMPLEMENTATION
-#include "lib/gl_core.h"
-
 NO_WARNINGS_BEGIN
-#define STB_IMAGE_IMPLEMENTATION
-#include "lib/stb_image.h"
-#include "lib/handmade_font.h"
+#if RL_FAST_COMPILE
+# define RL_LIBS_INCLUDE_ONLY
+# include "lib/rl_libs.h"
+# include "lib/gl_core_3_3_debug.h"
+# include "lib/stb_image.h"
+# include "lib/stb_truetype.h"
+# include "lib/rl_font.h"
+#else
+# include "lib/rl_libs.h"
+#endif
 NO_WARNINGS_END
-
 
 typedef struct vertex vertex;
 struct vertex
@@ -71,24 +74,6 @@ Rotate(vertex V, f32 Angle)
     
     return Result;
 }
-
-//~ GLAD
-void GLADNullPreCallback(const char *name, GLADapiproc apiproc, int len_args, ...) {}
-
-void GLADNullPostCallback(void *ret, const char *name, GLADapiproc apiproc, int len_args, ...) {}
-
-void GLADDisableCallbacks()
-{
-    _pre_call_gl_callback = GLADNullPreCallback;
-    _post_call_gl_callback = GLADNullPostCallback;
-}
-
-void GLADEnableCallbacks()
-{
-    _pre_call_gl_callback = _pre_call_gl_callback_default;
-    _post_call_gl_callback = _post_call_gl_callback_default;
-}
-
 
 //~ Helpers
 internal void

@@ -57,3 +57,17 @@ PadSize(umm Size, umm Padding)
     
     return Result;
 }
+
+internal umm 
+BeginScratch(arena *Arena)
+{
+    umm Result = Arena->Pos;
+    return Result;
+}
+
+internal void 
+EndScratch(arena *Arena, umm BackPos)
+{
+    Arena->Pos = BackPos;
+}
+

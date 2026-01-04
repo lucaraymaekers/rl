@@ -83,7 +83,7 @@
 #define ClampBot(X, B) Max(X,B)
 #define Clamp(A, X, B) (((X) < (A)) ? (A) : ((X) > (B)) ? (B) : (X))
 
-#ifndef LANG_C
+#if LANG_C
 # define Swap(A, B) do { typeof((A)) (temp) = (typeof((A)))(A); (A) = (B); (B) = (temp); } while(0)
 #else
 template <typename type> inline void 

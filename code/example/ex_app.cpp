@@ -1,8 +1,7 @@
 #include "base/base.h"
 #include "ex_platform.h"
 
-#define GLAD_GL_IMPLEMENTATION
-#include "lib/gl_core.h"
+#include "lib/rl_libs.h"
 
 typedef unsigned int gl_handle;
 
@@ -65,24 +64,6 @@ Rotate(vertex V, f32 Angle)
     
     return Result;
 }
-
-//~ GLAD
-void GLADNullPreCallback(const char *name, GLADapiproc apiproc, int len_args, ...) {}
-
-void GLADNullPostCallback(void *ret, const char *name, GLADapiproc apiproc, int len_args, ...) {}
-
-void GLADDisableCallbacks()
-{
-    _pre_call_gl_callback = GLADNullPreCallback;
-    _post_call_gl_callback = GLADNullPostCallback;
-}
-
-void GLADEnableCallbacks()
-{
-    _pre_call_gl_callback = _pre_call_gl_callback_default;
-    _post_call_gl_callback = _post_call_gl_callback_default;
-}
-
 
 //~ Helpers
 internal inline u32 *

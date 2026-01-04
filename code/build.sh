@@ -14,8 +14,11 @@ gcc=0
 debug=1
 release=0
 personal=0
+nofast=0
+fast=1
 
 # Targets
+clean=0
 hash=0
 samples=0
 cuversine=0
@@ -32,9 +35,7 @@ for Arg in "$@"; do eval "$Arg=1"; done
 # Exclusive flags
 [ "$release" = 1 ] && debug=0
 [ "$gcc"     = 1 ] && clang=0
-
-[ "$debug"   = 1 ] && printf '[debug mode]\n'
-[ "$release" = 1 ] && printf '[release mode]\n'
+[ "$nofast"  = 1 ] && fast=0
 mkdir -p "$Build"
 
 [ -f "./base/base_build.h" ] && personal=1
@@ -103,6 +104,9 @@ C_Compile()
 
  Flags="${3:-}"
 
+ [ "$debug"   = 1 ] && printf '[debug mode]\n'
+ [ "$release" = 1 ] && printf '[release mode]\n'
+
  [ "$gcc"   = 1 ] && Compiler="g++"
  [ "$clang" = 1 ] && Compiler="clang"
  printf '[%s compile]\n' "$Compiler"
@@ -168,9 +172,18 @@ fi
 AppCompile()
 {
  Dir="$1"
-	PlatformFlags="-lX11 -lGL -lGLX"
- C_Compile "$Dir"/ex_app.cpp app.so "-fPIC --shared -lm -DBASE_NO_ENTRYPOINT=1"
-	C_Compile $(Strip $Dir/ex_platform.cpp) "$PlatformFlags"
+
+ AppFlags="-fPIC --shared -lm -DBASE_NO_ENTRYPOINT=1" 
+
+ LibsFile="../build/rl_libs.o"
+ if [ "$fast" = 1 ]
+ then
+  [ ! -f "$LibsFile" ] && C_Compile lib/rl_libs.h "$LibsFile" "-fPIC -x c++ -c"
+  AppFlags="$AppFlags -DRL_FAST_COMPILE=1 $LibsFile"
+ fi
+ 
+ C_Compile "$Dir"/ex_app.cpp app.so "$AppFlags"
+ C_Compile $(Strip $Dir/ex_platform.cpp) "-lX11 -lGL -lGLX"
 }
 
 if [ "$example" = 1 ]
@@ -178,6 +191,12 @@ then
  [ "$app"  = 1 ] && AppCompile ./example
  [ "$sort" = 1 ] && AppCompile ./example/sort
  [ "$gl"   = 1 ] && AppCompile ./example/gl
+fi
+
+if [ "$clean"  = 1 ]
+then
+ rm -rf ../build/*
+ DidWork=1
 fi
 
 #- End
