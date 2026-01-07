@@ -5,12 +5,15 @@
 #define v4 vec4 
 #define f32 float
 
-layout (location = 0) in v3 pos;
+in v3 pos;
+in v2 tex;
 
 uniform v3 color;
+uniform v3 offset;
 uniform v2 angle;
 
 out v3 Color;
+out v2 TexCoord;
 
 f32 deg2rad(f32 degrees)
 {
@@ -34,17 +37,18 @@ v3 rotate(v3 Pos, f32 Angle)
 void main()
 {
     Color = color;
+    TexCoord = tex;
     
 #if 1   
     f32 x, y, z;;
     
     v3 inc = rotate(pos.yxz, angle.y).yxz;
     v3 rot = rotate(inc, angle.x);
-    x = rot.x;
-    y = rot.y;
+    x = rot.x + offset.x;
+    y = rot.y + offset.y;
     z = rot.z;
     
-    f32 depth = z + 3.0;
+    f32 depth = z + offset.z;
     gl_Position = v4(x/depth, y/depth, 0.0, 1.0);
 #else
     gl_Position = v4(pos, 1.0f);

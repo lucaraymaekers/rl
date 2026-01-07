@@ -504,6 +504,14 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                         u8 LookupBuffer[4] = {};
                         Status LookupStatus = {};
                         
+                        app_text_button *Button = &Input->Text.Buffer[Input->Text.Count];
+                        *Button = {};
+                        Input->Text.Count += 1;
+                        
+                        if(Shift)   Button->Modifiers |= PlatformKeyModifier_Shift;
+                        if(Control) Button->Modifiers |= PlatformKeyModifier_Control;
+                        if(Alt)     Button->Modifiers |= PlatformKeyModifier_Alt;
+                        
                         s32 BytesLookepdUp = Xutf8LookupString(Linux->InputContext, &WindowEvent.xkey, 
                                                                (char *)&LookupBuffer, ArrayCount(LookupBuffer), 
                                                                0, &LookupStatus);
@@ -522,14 +530,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                 // NOTE(luca): Input methods might produce non printable characters (< ' '). 
                                 if(Codepoint >= ' ' || Codepoint < 0)
                                 {                            
-                                    app_text_button *Button = &Input->Text.Buffer[Input->Text.Count];
-                                    *Button = {};
-                                    Input->Text.Count += 1;
                                     Button->Codepoint = Codepoint;
-                                    
-                                    if(Shift)   Button->Modifiers |= PlatformKeyModifier_Shift;
-                                    if(Control) Button->Modifiers |= PlatformKeyModifier_Control;
-                                    if(Alt)     Button->Modifiers |= PlatformKeyModifier_Alt;
                                     
 #if 0
                                     Log("%d bytes '%c' %d (%c|%c|%c)\n", 
@@ -542,10 +543,8 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                 }
                                 else
                                 {
-                                    app_text_button *Button = &Input->Text.Buffer[Input->Text.Count];
-                                    *Button = {};
-                                    Input->Text.Count += 1;
                                     Button->IsSymbol = true;
+                                    
                                     if(0) {}
                                     else if(Symbol == XK_Escape)    Button->Symbol = PlatformKey_Escape;
                                     else if(Symbol == XK_Tab)       Button->Symbol = PlatformKey_Tab;
@@ -556,17 +555,15 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                     {
                                         Button->IsSymbol = false;
                                         
-                                        if(Shift)   Button->Modifiers |= PlatformKeyModifier_Shift;
-                                        if(Control) Button->Modifiers |= PlatformKeyModifier_Control;
-                                        if(Alt)     Button->Modifiers |= PlatformKeyModifier_Alt;
-                                        
                                         Button->Codepoint = ((rune)(Symbol - XK_space) + L' ');
                                     }
                                     
                                     else
                                     {
                                         Input->Text.Count -= 1;;
-                                        AssertMsg(0, "Unhandled special key: %d", Symbol);
+                                        
+                                        ErrorLog("Unhandled special key(%d): %s", Symbol, LinuxReturnStringForSymbol(Symbol));
+                                        DebugBreak;
                                     }
                                 }
                             }
@@ -577,9 +574,6 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                         }
                         else
                         {
-                            app_text_button *Button = &Input->Text.Buffer[Input->Text.Count];
-                            *Button = {};
-                            Input->Text.Count += 1;
                             Button->IsSymbol = true;
                             
                             if(0) {}
@@ -603,6 +597,12 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                 Button->Symbol = PlatformKey_PageDown;
                             else if(Symbol == XK_Insert || Symbol == XK_KP_Insert)
                                 Button->Symbol = PlatformKey_Insert;
+                            else if(Symbol == XK_Shift_L || Symbol == XK_Shift_R)
+                                Button->Symbol = PlatformKey_Shift;
+                            else if(Symbol == XK_Control_L || Symbol == XK_Control_R)
+                                Button->Symbol = PlatformKey_Control;
+                            else if(Symbol == XK_Alt_L || Symbol == XK_Alt_R)
+                                Button->Symbol = PlatformKey_Alt;
                             
                             else if(Symbol >= XK_F1 && Symbol <= XK_F12) 
                             {
@@ -613,12 +613,6 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                             else if(Symbol == XK_KP_Begin || 
                                     Symbol == XK_Super_L ||
                                     Symbol == XK_Super_R || 
-                                    Symbol == XK_Alt_L ||
-                                    Symbol == XK_Alt_R ||
-                                    Symbol == XK_Shift_L ||
-                                    Symbol == XK_Shift_R ||
-                                    Symbol == XK_Control_L ||
-                                    Symbol == XK_Control_R ||
                                     Symbol == XK_Num_Lock ||
                                     Symbol == XK_Caps_Lock ||
                                     Symbol == XK_ISO_Level3_Shift) 

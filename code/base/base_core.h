@@ -274,6 +274,18 @@ struct range_s64
     s64 Max;
 };
 
+typedef struct v2 v2;
+struct v2
+{
+    f32 X, Y;
+};
+
+typedef struct v3 v3;
+struct v3
+{
+    f32 X, Y, Z;
+};
+
 //~ Globals
 global_variable b32 GlobalDebuggerIsAttached;
 

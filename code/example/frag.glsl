@@ -1,14 +1,23 @@
 #version 330 core
 
-out vec4 FragColor;
+#define v2 vec2
+#define v3 vec3
+#define v4 vec4
 
-in vec3 Color;
+out v4 FragColor;
+
+in v3 Color;
+in v2 TexCoord;
+
+uniform sampler2D Texture;
 
 void main()
 {
-#if 0
-    FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+#if 1
+    // NOTE(luca): When looking at the texture in renderdoc I noticed it was flipped.
+    v4 TexColor = texture(Texture, v2(TexCoord.x, 1.0 - TexCoord.y));
+    FragColor = TexColor;
 #else
-    FragColor = vec4(Color, 1.0f);
+    FragColor = v4(Color, 1.0f);
 #endif
 }

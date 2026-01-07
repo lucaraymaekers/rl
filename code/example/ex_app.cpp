@@ -3,10 +3,10 @@
 
 #include "lib/rl_libs.h"
 
-#define Strs_CodePath       ".." SLASH "code" SLASH "example" 
+#define Strs_CodePath           ".." SLASH "code" SLASH "example" 
 #define Strs_FragmentShaderPath Strs_CodePath SLASH "frag.glsl"
 #define Strs_VertexShaderPath   Strs_CodePath SLASH "vert.glsl"
-
+#define Strs_TexturePath        ".." SLASH "data" SLASH "bonhomme.png"
 typedef unsigned int gl_handle;
 
 typedef struct vertex vertex;
@@ -49,26 +49,6 @@ typedef s32 face[4][3];
 ((f32)((Hex >> 8*0) & 0xFF)/255.0f)
 
 
-//~ Math
-internal vertex 
-Rotate(vertex V, f32 Angle)
-{
-    vertex Result = {};
-    
-    f32 C = cosf(Angle);
-    f32 S = sinf(Angle);
-    
-    f32 X = V.X;
-    f32 Y = V.Y;
-    f32 Z = V.Z;
-    
-    Result.X = X*C - Z*S;
-    Result.Y = Y;
-    Result.Z = X*S + Z*C;
-    
-    return Result;
-}
-
 //~ Helpers
 internal inline u32 *
 PixelFromBuffer(app_offscreen_buffer *Buffer, s32 X, s32 Y)
@@ -100,7 +80,6 @@ BubbleSort(u32 Count, u32 *List)
         }
     }
 }
-
 
 internal void
 GLErrorStatus(gl_handle Handle, b32 IsShader)
@@ -383,6 +362,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
             RandomSeed(&App->Series, 0);
             GLADVersion = gladLoaderLoadGL();
             
+            App->Offset.Z = 3.0f;
+            
             App->Initialized = true;
         }
         
@@ -392,7 +373,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
     OS_ProfileAndPrint("Init");
     
-    local_persist b32 Animate = true;
+    local_persist b32 Animate = false;
     
     //Input 
     for EachIndex(Idx, Input->Text.Count)
@@ -407,30 +388,47 @@ UPDATE_AND_RENDER(UpdateAndRender)
             }
             if(Key.Codepoint == 'r') 
             {
-                App->XOffset = 0.0f;
-                App->YOffset = 0.0f;
+                App->Angle.X = 0.0f;
+                App->Angle.Y = 0.0f;
+                App->Offset.X =  0.0f;
+                App->Offset.Y =  0.0f;
+                App->Offset.Z = 3.0f;
             }
             if(Key.Codepoint == 'a') Animate = !Animate;
+            if(Key.Codepoint == ' ') App->Offset.Y -= 0.1f; 
         }
         else
         {
+            if(Key.Codepoint == PlatformKey_Control) App->Offset.Y += 0.1f;
+            
+            if(!(Key.Modifiers & PlatformKeyModifier_Shift))
+            {
+                if(Key.Codepoint == PlatformKey_Down) App->Offset.Z += 0.1f; 
+                if(Key.Codepoint == PlatformKey_Up) App->Offset.Z -= 0.1f; 
+                if(Key.Codepoint == PlatformKey_Left) App->Offset.X += 0.1f; 
+                if(Key.Codepoint == PlatformKey_Right) App->Offset.X -= 0.1f; 
+            }
+            else
+            {                
+                if(Key.Codepoint == PlatformKey_Up)     App->Angle.Y -= 0.1f;
+                if(Key.Codepoint == PlatformKey_Down)   App->Angle.Y += 0.1f;
+                if(Key.Codepoint == PlatformKey_Right)  App->Angle.X += 0.1f;
+                if(Key.Codepoint == PlatformKey_Left)   App->Angle.X -= 0.1f;
+            }
+            
             if(Key.Codepoint == PlatformKey_Escape) ShouldQuit = true;
-            if(Key.Codepoint == PlatformKey_Right)  App->XOffset += 0.1f;
-            if(Key.Codepoint == PlatformKey_Left)   App->XOffset -= 0.1f;
-            if(Key.Codepoint == PlatformKey_Up)     App->YOffset -= 0.1f;
-            if(Key.Codepoint == PlatformKey_Down)   App->YOffset += 0.1f;
         }
     }
     
     if(Animate)
     {
-        App->XOffset += Input->dtForFrame;
+        App->Angle.X += Input->dtForFrame;
     }
     
-    App->XOffset -= 2.0f*!!(App->XOffset > 2.0f);
-    App->XOffset += 2.0f*!!(App->XOffset < -2.0f);
-    App->YOffset -= 2.0f*!!(App->YOffset > 2.0f);
-    App->YOffset += 2.0f*!!(App->YOffset < -2.0f);
+    App->Angle.X -= 2.0f*!!(App->Angle.X > 2.0f);
+    App->Angle.X += 2.0f*!!(App->Angle.X < -2.0f);
+    App->Angle.Y -= 2.0f*!!(App->Angle.Y > 2.0f);
+    App->Angle.Y += 2.0f*!!(App->Angle.Y < -2.0f);
     
     umm Count = 0;
     vertex *Vertices = 0;
@@ -529,26 +527,27 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 while(At < In.Size && In.Data[At] != '\n') At += 1;
             }
         }
-        else
-        {
-            // NOTE(luca): Should already be logged in platform layer.
-        }
         
-        Count = InFacesCount*4;
+        // NOTE(luca): Assumes faces always have 4 indices.
+        s32 Indices[] = {0, 1, 2, 0, 2, 3};
+        
+        Count = InFacesCount*ArrayCount(Indices);
         Vertices = PushArray(FrameArena, vertex, Count);
         TexCoords = PushArray(FrameArena, tex_coord, Count);
         Normals = PushArray(FrameArena, normal, Count);
         
         for EachIndex(FaceIdx, InFacesCount)
         {
-            for EachIndex(Idx, 4)
+            for EachIndex(Idx, ArrayCount(Indices))
             {
-                s32 *Face = InFaces[FaceIdx][Idx];
-                s32 vIdx = Face[0];
-                s32 vtIdx = Face[1];
-                s32 vnIdx = Face[2];
+                s32 Index = Indices[Idx];
                 
-                umm Offset = FaceIdx*4 + Idx;
+                s32 *FaceIndices = InFaces[FaceIdx][Index];
+                s32 vIdx = FaceIndices[0];
+                s32 vtIdx = FaceIndices[1];
+                s32 vnIdx = FaceIndices[2];
+                
+                umm Offset = FaceIdx*ArrayCount(Indices) + Idx;
                 Vertices[Offset] = InVertices[vIdx];
                 TexCoords[Offset] = InTexCoords[vtIdx];
                 Normals[Offset] = InNormals[vnIdx];
@@ -559,8 +558,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
     
     s32 Major, Minor;
-    gl_handle VAO, VBO, ShaderProgram;
-    gl_handle PosAttrib, UAngle, UColor;
+    gl_handle VAO, VBO[2], Tex, ShaderProgram;
+    gl_handle PosAttrib, TexAttrib, UOffset, UAngle, UColor;
     // Setup
     { 
         glGetIntegerv(GL_MAJOR_VERSION, &Major);
@@ -585,16 +584,29 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         glGenVertexArrays(1, &VAO); 
         glBindVertexArray(VAO);
-        glGenBuffers(1, &VBO);  
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
         
-        PosAttrib = glGetAttribLocation(ShaderProgram, "pos");
-        glEnableVertexAttribArray(PosAttrib);
+        glGenTextures(1, &Tex);
         
+        glGenBuffers(2, &VBO[0]);  
+        {        
+            glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(vertex)*Count, Vertices, GL_STATIC_DRAW);
+            
+            PosAttrib = glGetAttribLocation(ShaderProgram, "pos");
+            glEnableVertexAttribArray(PosAttrib);
+            glVertexAttribPointer(PosAttrib, 3, GL_FLOAT, GL_FALSE, 3*sizeof(f32), 0);
+            
+            glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tex_coord)*Count, TexCoords, GL_STATIC_DRAW);
+            
+            TexAttrib = glGetAttribLocation(ShaderProgram, "tex");
+            glEnableVertexAttribArray(TexAttrib);
+            glVertexAttribPointer(TexAttrib, 2, GL_FLOAT, GL_FALSE, 2*sizeof(f32), 0);
+        }
+        
+        UOffset = glGetUniformLocation(ShaderProgram, "offset");
         UAngle = glGetUniformLocation(ShaderProgram, "angle");
         UColor = glGetUniformLocation(ShaderProgram, "color");
-        
-        glVertexAttribPointer(PosAttrib, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), 0);
         
         b32 Fill = true;
         s32 Mode = (Fill) ? GL_FILL : GL_LINE;
@@ -604,32 +616,61 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // Shader prep
     {    
         vertex Color = {HexToRGBV3(ColorPoint)};
-        f32 XAngle = Pi32 * App->XOffset;
-        f32 YAngle = Pi32 * App->YOffset;
+        f32 XAngle = Pi32 * App->Angle.X;
+        f32 YAngle = Pi32 * App->Angle.Y;
         glUniform2f(UAngle, XAngle, YAngle);
+        glUniform3f(UOffset, App->Offset.X, App->Offset.Y, App->Offset.Z);
         glUniform3f(UColor, Color.X, Color.Y, Color.Z);
         
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertex)*Count, Vertices, GL_STATIC_DRAW);
+        // TODO(luca): Proper assets loading.
+        {
+            local_persist int Width, Height, Components;
+            local_persist u8 *Image = 0;
+            
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, Tex);
+            
+            char *ImagePath = PathFromExe(FrameArena, App, S8(Strs_TexturePath));
+            if(!Image) 
+            {
+                Image = stbi_load(ImagePath, &Width, &Height, &Components, 0);
+            }
+            
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Image);
+            glUniform1i(glGetUniformLocation(ShaderProgram, "Texture"), 0);
+            
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+            // TODO(luca): Use mipmap
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            f32 Color[] = { 1.0f, 0.0f, 0.0f, 1.0f };
+            glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, Color);
+        }
+        
     }
     
     // Drawing
-    {    
+    {
+#if 1
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_DEPTH_TEST);
+#endif
+        
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glClearColor(HexToRGBV3(ColorBackgroundSecond), 0.0f);
+        glClearColor(HexToRGBV3(ColorBackground), 0.0f);
         glPointSize(10.0f);
         glLineWidth(1.0f);
         
-        for EachIndexType(u32, Idx, Count/4)
-        {
-            // TODO(luca): This depends on the number of vertexes per face.  Blockbench always produces 4.  But other models like suzanne, might only produce 3.  So we can modify the last parameter of `glDrawArrays` accordingly.  But it would be more robust to have each face save the number of vertices processed.
-            glDrawArrays(GL_LINE_LOOP, Idx*4, 4);
-        }
+        // TODO(luca): This depends on the number of vertexes per face.  Blockbench always produces 4.  But other models like suzanne, might only produce 3.  So we can modify the last parameter of `glDrawArrays` accordingly.  But it would be more robust to have each face save the number of vertices processed.
+        glDrawArrays(GL_TRIANGLES, 0, (int)Count);
     }
     
     // Delete
     {    
-        glDeleteBuffers(1, &VBO);
+        glDeleteBuffers(2, &VBO[0]);
         glDeleteVertexArrays(1, &VAO);
+        glDeleteTextures(1, &Tex);
         glDeleteProgram(ShaderProgram);
     }
     

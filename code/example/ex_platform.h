@@ -22,7 +22,6 @@ enum platform_key
     PlatformKey_Return,
     PlatformKey_Escape,
     
-    
     PlatformKey_Delete,
     PlatformKey_BackSpace,
     PlatformKey_Insert,
@@ -49,6 +48,10 @@ enum platform_key
     PlatformKey_Down,
     PlatformKey_Left,
     PlatformKey_Right,
+    
+    PlatformKey_Shift,
+    PlatformKey_Control,
+    PlatformKey_Alt,
     
     PlatformKey_Count,
 };
@@ -125,8 +128,8 @@ struct app_state
     
     arena *NumbersArena;
     
-    f32 XOffset;
-    f32 YOffset;
+    v3 Offset;
+    v2 Angle;
     
     str8 ExeDirPath;
 #if RL_INTERNAL
