@@ -14,8 +14,7 @@ uniform sampler2D Texture;
 void main()
 {
 #if 1
-    // NOTE(luca): When looking at the texture in renderdoc I noticed it was flipped.
-    v4 TexColor = texture(Texture, v2(TexCoord.x, 1.0 - TexCoord.y));
+    v4 TexColor = texture(Texture, TexCoord);
     FragColor = TexColor;
 #else
     FragColor = v4(Color, 1.0f);

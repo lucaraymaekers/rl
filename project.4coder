@@ -18,6 +18,7 @@ patterns =
 blacklist_patterns = 
 {
     ".*",
+    "gl*.h"
 };
 
 paths = 

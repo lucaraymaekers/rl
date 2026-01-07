@@ -3,10 +3,6 @@
 
 #include "lib/rl_libs.h"
 
-#define Strs_CodePath           ".." SLASH "code" SLASH "example" 
-#define Strs_FragmentShaderPath Strs_CodePath SLASH "frag.glsl"
-#define Strs_VertexShaderPath   Strs_CodePath SLASH "vert.glsl"
-#define Strs_TexturePath        ".." SLASH "data" SLASH "bonhomme.png"
 typedef unsigned int gl_handle;
 
 typedef struct vertex vertex;
@@ -33,15 +29,22 @@ typedef s32 face[4][3];
 //~ Constants
 
 // AA BB GG RR
-#define ColorText          0xff87bfcf
-#define ColorPoint         0xFF00FFFF
-#define ColorCursor        0xFFFF0000
-#define ColorButton        0xFF0172AD
-#define ColorButtonHovered 0xFF017FC0
-#define ColorButtonPressed 0xFF0987C8
-#define ColorButtonText    0xFFFBFDFE
-#define ColorBackground    0xFF13171F
-#define ColorBackgroundSecond 0xFF3A4151
+#define Color_Text          0xff87bfcf
+#define Color_Point         0xFF00FFFF
+#define Color_Cursor        0xFFFF0000
+#define Color_Button        0xFF0172AD
+#define Color_ButtonHovered 0xFF017FC0
+#define Color_ButtonPressed 0xFF0987C8
+#define Color_ButtonText    0xFFFBFDFE
+#define Color_Background    0xFF13171F
+#define Color_BackgroundSecond 0xFF3A4151
+
+#define Strs_CodePath           ".." SLASH "code" SLASH "example" 
+#define Strs_DataPath           ".." SLASH "data" 
+#define Strs_FragmentShaderPath Strs_CodePath SLASH "frag.glsl"
+#define Strs_VertexShaderPath   Strs_CodePath SLASH "vert.glsl"
+#define Strs_ModelPath          Strs_DataPath SLASH "block_debug.obj"
+#define Strs_TexturePath        Strs_DataPath SLASH "block_debug.png"
 
 #define HexToRGBV3(Hex) \
 ((f32)((Hex >> 8*2) & 0xFF)/255.0f), \
@@ -124,7 +127,6 @@ CompileShaderFromSource(arena *Arena, app_state *App, str8 FileNameAfterExe, s32
     
     return Handle;
 }
-
 
 //~ Sorting
 internal void 
@@ -395,12 +397,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 App->Offset.Z = 3.0f;
             }
             if(Key.Codepoint == 'a') Animate = !Animate;
-            if(Key.Codepoint == ' ') App->Offset.Y -= 0.1f; 
+            if(Key.Codepoint  == ' ')
+            {
+                if(Key.Modifiers & PlatformKeyModifier_Shift) App->Offset.Y += 0.1f; 
+                else                                          App->Offset.Y -= 0.1f; 
+            }
         }
         else
         {
-            if(Key.Codepoint == PlatformKey_Control) App->Offset.Y += 0.1f;
-            
             if(!(Key.Modifiers & PlatformKeyModifier_Shift))
             {
                 if(Key.Codepoint == PlatformKey_Down) App->Offset.Z += 0.1f; 
@@ -437,7 +441,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     // Read obj file
     {    
-        char *FileName = PathFromExe(FrameArena, App, S8(".." SLASH "data" SLASH "bonhomme.obj"));
+        char *FileName = PathFromExe(FrameArena, App, S8(Strs_ModelPath));
         str8 In = OS_ReadEntireFileIntoMemory(FileName);
         
         s32 InVerticesCount = 0;
@@ -479,16 +483,17 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     }
                     else if(S8Match(Keyword, S8("vt"), false))
                     {
-                        New(tex_coord, InTexCoord, InTexCoords, InTexCoordsCount);
-                        InTexCoord->X = ParseFloat(In, &At);
-                        InTexCoord->Y = ParseFloat(In, &At);
+                        New(tex_coord, TexCoord, InTexCoords, InTexCoordsCount);
+                        TexCoord->X = ParseFloat(In, &At);
+                        // NOTE(luca): When looking at the texture in renderdoc I noticed it was flipped.
+                        TexCoord->Y = 1.0f - ParseFloat(In, &At);
                     }
                     else if(S8Match(Keyword, S8("vn"), false))
                     {
-                        New(normal, InNormal, InNormals, InNormalsCount);
-                        InNormal->X = ParseFloat(In, &At);
-                        InNormal->Y = ParseFloat(In, &At);
-                        InNormal->Z = ParseFloat(In, &At);
+                        New(normal, Normal, InNormals, InNormalsCount);
+                        Normal->X = ParseFloat(In, &At);
+                        Normal->Y = ParseFloat(In, &At);
+                        Normal->Z = ParseFloat(In, &At);
                     }
                     else if(S8Match(Keyword, S8("f"), false))
                     {
@@ -528,31 +533,40 @@ UPDATE_AND_RENDER(UpdateAndRender)
             }
         }
         
-        // NOTE(luca): Assumes faces always have 4 indices.
-        s32 Indices[] = {0, 1, 2, 0, 2, 3};
-        
-        Count = InFacesCount*ArrayCount(Indices);
-        Vertices = PushArray(FrameArena, vertex, Count);
-        TexCoords = PushArray(FrameArena, tex_coord, Count);
-        Normals = PushArray(FrameArena, normal, Count);
-        
-        for EachIndex(FaceIdx, InFacesCount)
-        {
-            for EachIndex(Idx, ArrayCount(Indices))
+        // Convert faces to triangles.
+        {        
+            // TODO(luca): This should depend on the number of vertexes per face.  Blockbench always produces 4 so for now, we create a quad out of two triangles
+            s32 Indices[] = {0, 1, 2, 0, 2, 3};
+            s32 IndicesCount = ArrayCount(Indices);
+            
+            Count = InFacesCount*IndicesCount;
+            Vertices = PushArray(FrameArena, vertex, Count);
+            TexCoords = PushArray(FrameArena, tex_coord, Count);
+            Normals = PushArray(FrameArena, normal, Count);
+            
+            for EachIndex(FaceIdx, InFacesCount)
             {
-                s32 Index = Indices[Idx];
-                
-                s32 *FaceIndices = InFaces[FaceIdx][Index];
-                s32 vIdx = FaceIndices[0];
-                s32 vtIdx = FaceIndices[1];
-                s32 vnIdx = FaceIndices[2];
-                
-                umm Offset = FaceIdx*ArrayCount(Indices) + Idx;
-                Vertices[Offset] = InVertices[vIdx];
-                TexCoords[Offset] = InTexCoords[vtIdx];
-                Normals[Offset] = InNormals[vnIdx];
+                for EachIndex(Idx, IndicesCount)
+                {
+                    s32 Index = Indices[Idx];
+                    
+                    s32 *FaceIndices = InFaces[FaceIdx][Index];
+                    s32 vIdx = FaceIndices[0];
+                    s32 vtIdx = FaceIndices[1];
+                    s32 vnIdx = FaceIndices[2];
+                    
+                    Assert(vIdx >= 0 && vIdx < InVerticesCount);
+                    Assert(vtIdx >= 0 && vtIdx < InTexCoordsCount);
+                    Assert(vnIdx >= 0 && vnIdx < InNormalsCount);
+                    
+                    umm Offset = IndicesCount*FaceIdx + Idx;
+                    Vertices[Offset] = InVertices[vIdx];
+                    TexCoords[Offset] = InTexCoords[vtIdx];
+                    Normals[Offset] = InNormals[vnIdx];
+                }
             }
         }
+        
         OS_FreeFileMemory(In);
         OS_ProfileAndPrint("Obj read");
     }
@@ -613,16 +627,16 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glPolygonMode(GL_FRONT_AND_BACK, Mode);
     }
     
-    // Shader prep
+    // Prep data for shaders
     {    
-        vertex Color = {HexToRGBV3(ColorPoint)};
+        vertex Color = {HexToRGBV3(Color_Point)};
         f32 XAngle = Pi32 * App->Angle.X;
         f32 YAngle = Pi32 * App->Angle.Y;
         glUniform2f(UAngle, XAngle, YAngle);
         glUniform3f(UOffset, App->Offset.X, App->Offset.Y, App->Offset.Z);
         glUniform3f(UColor, Color.X, Color.Y, Color.Z);
         
-        // TODO(luca): Proper assets loading.
+        // TODO(luca): Proper assets/texture loading.
         {
             local_persist int Width, Height, Components;
             local_persist u8 *Image = 0;
@@ -636,7 +650,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 Image = stbi_load(ImagePath, &Width, &Height, &Components, 0);
             }
             
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Image);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Image);
             glUniform1i(glGetUniformLocation(ShaderProgram, "Texture"), 0);
             
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -658,15 +672,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
 #endif
         
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glClearColor(HexToRGBV3(ColorBackground), 0.0f);
+        glClearColor(HexToRGBV3(Color_Background), 0.0f);
         glPointSize(10.0f);
         glLineWidth(1.0f);
         
-        // TODO(luca): This depends on the number of vertexes per face.  Blockbench always produces 4.  But other models like suzanne, might only produce 3.  So we can modify the last parameter of `glDrawArrays` accordingly.  But it would be more robust to have each face save the number of vertices processed.
         glDrawArrays(GL_TRIANGLES, 0, (int)Count);
     }
     
-    // Delete
+    // Cleanup
     {    
         glDeleteBuffers(2, &VBO[0]);
         glDeleteVertexArrays(1, &VAO);
