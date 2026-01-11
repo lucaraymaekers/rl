@@ -1,12 +1,13 @@
-#define BASE_NO_ENTRYPOINT
+#define BASE_NO_ENTRYPOINT 1
 #include "base/base.h"
 #include "ex_platform.h"
-
-#include "rl_libs.h"
+#include "ex_math.h"
 
 NO_WARNINGS_BEGIN
 #include "ex_font.h"
 NO_WARNINGS_END
+
+#include "rl_libs.h"
 
 typedef unsigned int gl_handle;
 
@@ -77,84 +78,6 @@ typedef enum model_path_name model_path_name;
 
 
 //~ Helpers
-internal inline v2 
-V2AddV2(v2 A, v2 B)
-{
-    v2 Result = {};
-    Result.X = A.X + B.X;
-    Result.Y = A.Y + B.Y;
-    return Result;
-}
-
-internal inline v2 
-V2AddF32(v2 A, f32 B)
-{
-    v2 Result = {};
-    Result.X = A.X + B;
-    Result.Y = A.Y + B;
-    return Result;
-}
-
-internal inline v2 
-V2MulF32(v2 A, f32 B)
-{
-    v2 Result = {};
-    Result.X = A.X * B;
-    Result.Y = A.Y * B;
-    return Result;
-}
-
-internal inline v2
-V2SubV2(v2 A, v2 B)
-{
-    v2 Result = {};
-    Result.X = A.X - B.X;
-    Result.Y = A.Y - B.Y;
-    return Result;
-}
-
-internal inline v2
-V2S32(s32 X, s32 Y)
-{
-    v2 Result = {};
-    Result.X = (f32)X;
-    Result.Y = (f32)Y;
-    return Result;
-}
-
-internal inline v2
-V2MulV2(v2 A, v2 B)
-{
-    v2 Result = {};
-    Result.X = A.X * B.X;
-    Result.Y = A.Y * B.Y;
-    return Result;
-}
-
-internal inline b32
-InBounds(v2 A, v2 Min, v2 Max)
-{
-    b32 Result = !!((A.X >= Min.X && A.X < Max.X) &&
-                    (A.Y >= Min.Y && A.Y < Max.Y));
-    return Result;
-}
-
-internal inline void
-SetProvokingV3(v3 Quad[6], v3 Vertex)
-{
-    Quad[2] = Vertex;
-    Quad[5] = Vertex;
-}
-
-internal inline void
-SetProvokingV2(v2 Quad[6], v2 Vertex)
-{
-    Quad[2] = Vertex;
-    Quad[5] = Vertex;
-}
-
-//- 
-
 internal inline u32 *
 PixelFromBuffer(app_offscreen_buffer *Buffer, s32 X, s32 Y)
 {
@@ -555,17 +478,17 @@ DrawButton(arena *Arena, app_offscreen_buffer *Buffer, app_offscreen_buffer *Tex
         Hovered = !!InBounds(Pos, ButtonMin, ButtonMax);;
         Clicked = !!(Hovered && Input->Buttons[PlatformButton_Left].EndedDown);
         
-        Color = ((Clicked) ? (v3){HexToRGBV3(Color_ButtonPressed)} :
-                 (Hovered) ? (v3){HexToRGBV3(Color_ButtonHovered)} :
-                 (v3){HexToRGBV3(Color_Button)});
+        Color = ((Clicked) ? V3(HexToRGBV3(Color_ButtonPressed)) :
+                 (Hovered) ? V3(HexToRGBV3(Color_ButtonHovered)) :
+                 V3(HexToRGBV3(Color_Button)));
     }
     
     // Draw button background
     {    
         // TODO(luca): Use one big buffer
         
-        v2 ClipMin = V2MulV2(V2AddF32(V2MulF32(Min, 2.0f), -1.0f), (v2){1.0f, -1.0f});
-        v2 ClipMax = V2MulV2(V2AddF32(V2MulF32(Max, 2.0f), -1.0f), (v2){1.0f, -1.0f});
+        v2 ClipMin = V2MulV2(V2AddF32(V2MulF32(Min, 2.0f), -1.0f), V2(1.0f, -1.0f));
+        v2 ClipMax = V2MulV2(V2AddF32(V2MulF32(Max, 2.0f), -1.0f), V2(1.0f, -1.0f));
         
         Vertices[0] = {ClipMin.X, ClipMin.Y, -1.0f}; // BL
         Vertices[1] = {ClipMax.X, ClipMin.Y, -1.0f}; // BR

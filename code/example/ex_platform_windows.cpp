@@ -218,6 +218,30 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
         
         Buffer->Width = GlobalBufferWidth;
         Buffer->Height = GlobalBufferHeight;
+        
+        // Mouse
+        {        
+            POINT MouseP;
+            GetCursorPos(&MouseP);
+            ScreenToClient(Win32Context->Window, &MouseP);
+            
+            if(MouseP.x >= 0 && MouseP.x < Buffer->Width &&
+               MouseP.y >= 0 && MouseP.y < Buffer->Height)
+            {                    
+                Input->MouseX = MouseP.x;
+                Input->MouseY = MouseP.y;
+            }
+            
+            // TODO(luca): Support mousewheel
+            Input->MouseZ = 0; 
+            
+            ProcessKeyPress(&Input->Buttons[0], GetKeyState(VK_LBUTTON) & (1 << 15));
+            ProcessKeyPress(&Input->Buttons[1], GetKeyState(VK_MBUTTON) & (1 << 15));
+            ProcessKeyPress(&Input->Buttons[2], GetKeyState(VK_RBUTTON) & (1 << 15));
+            ProcessKeyPress(&Input->Buttons[3], GetKeyState(VK_XBUTTON1) & (1 << 15));
+            ProcessKeyPress(&Input->Buttons[4], GetKeyState(VK_XBUTTON2) & (1 << 15));
+        }
+        
     }
 }
 

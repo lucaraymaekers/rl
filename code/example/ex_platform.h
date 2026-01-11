@@ -217,6 +217,16 @@ PathFromExe(arena *Arena, app_state *App, str8 Path)
     return Result;
 }
 
+internal void 
+ProcessKeyPress(app_button_state *ButtonState, b32 IsDown)
+{
+    if(ButtonState->EndedDown != IsDown)
+    {
+        ButtonState->EndedDown = IsDown;
+        ButtonState->HalfTransitionCount += 1;
+    }
+}
+
 //~ Functions
 #define UPDATE_AND_RENDER(Name) b32 Name(thread_context *Context, app_state *App, arena *FrameArena, app_offscreen_buffer *Buffer, app_input *Input)
 typedef UPDATE_AND_RENDER(update_and_render);

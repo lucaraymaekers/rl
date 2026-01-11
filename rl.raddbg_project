@@ -2,6 +2,7 @@
 
 recent_file: path: "code/example/ex_platform_windows.cpp"
 recent_file: path: "code/base/base_os_windows.c"
+recent_file: path: "code/lib/stb_truetype.h"
 recent_file: path: "code/example/ex_app.cpp"
 recent_file: path: "d:/os/obj/amd64fre/minkernel/crts/ucrt/src/appcrt/string/xmt/objfre/amd64/minkernel/crts/ucrt/src/appcrt/string/strnlen.cpp"
 recent_file: path: "code/example/ex_platform.cpp"
@@ -25,12 +26,12 @@ target:
 debug_info:
 {
   path: "C:/Users/zebra/Projects/rl/build/ex_platform.pdb"
-  timestamp: 66203225838307
+  timestamp: 66203595512338
 }
 debug_info:
 {
   path: "C:/Users/zebra/Projects/rl/build/ex_app.pdb"
-  timestamp: 66203225837515
+  timestamp: 66203595511524
 }
 watch_pin:
 {

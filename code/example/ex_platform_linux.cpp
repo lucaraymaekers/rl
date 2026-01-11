@@ -129,16 +129,6 @@ LinuxSigIntHandler(int Signal)
     *GlobalRunning = false;
 }
 
-internal void 
-LinuxProcessKeyPress(app_button_state *ButtonState, b32 IsDown)
-{
-    if(ButtonState->EndedDown != IsDown)
-    {
-        ButtonState->EndedDown = IsDown;
-        ButtonState->HalfTransitionCount += 1;
-    }
-}
-
 //~ Platform API
 internal P_context
 P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
@@ -658,23 +648,23 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                     if(0) {}
                     else if(Button == Button1)
                     {
-                        LinuxProcessKeyPress(&Input->Buttons[PlatformButton_Left], IsDown);
+                        ProcessKeyPress(&Input->Buttons[PlatformButton_Left], IsDown);
                     }
                     else if(Button == Button2)
                     {
-                        LinuxProcessKeyPress(&Input->Buttons[PlatformButton_Middle], IsDown);
+                        ProcessKeyPress(&Input->Buttons[PlatformButton_Middle], IsDown);
                     }
                     else if(Button == Button3)
                     {
-                        LinuxProcessKeyPress(&Input->Buttons[PlatformButton_Right], IsDown);
+                        ProcessKeyPress(&Input->Buttons[PlatformButton_Right], IsDown);
                     }
                     else if(Button == Button4)
                     {
-                        LinuxProcessKeyPress(&Input->Buttons[PlatformButton_ScrollUp], IsDown);
+                        ProcessKeyPress(&Input->Buttons[PlatformButton_ScrollUp], IsDown);
                     }
                     else if(Button == Button5)
                     {
-                        LinuxProcessKeyPress(&Input->Buttons[PlatformButton_ScrollDown], IsDown);
+                        ProcessKeyPress(&Input->Buttons[PlatformButton_ScrollDown], IsDown);
                     }
                 } break;
                 

@@ -17,7 +17,7 @@ REM 64-Bit
 
 echo WAITING FOR PDB > lock.tmp
 
-cl %CommonCompilerFlags% -DBASE_NO_ENTRYPOINT=1 -Fmapp.map ..\code\example\ex_app.cpp -LD /link /DLL %CommonLinkerFlags% /EXPORT:UpdateAndRender
+cl %CommonCompilerFlags% -Fmapp.map ..\code\example\ex_app.cpp -LD /link /DLL %CommonLinkerFlags% /EXPORT:UpdateAndRender
 del lock.tmp
 
 cl %CommonCompilerFlags% -Fmex_platform.map ..\code\example\ex_platform.cpp /link %CommonLinkerFlags%
