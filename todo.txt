@@ -5,5 +5,26 @@ Example App
 - Create all path strings at initialization
 - mdesk
 
+// 1. Have the vertices passed as the min and max points.
+    // 
+    // In vertex shader
+    // 1. Inputs
+    //    - Vertex
+    // 2. Pass around
+    //    - Color
+    //    - Min
+    //    - Max
+    //    - Pos
+    
+    // In fragment shader
+    // 1. Get Size
+    // 2. Transform Pos into -1.0 to 1.0
+    //  1. P = Pos - Min
+    //   -> Convert to clip space
+    //  2. Size = Max - Min
+    //  3. Center = P/Size 
+    //  4. DistanceFromPoint(Center, 0.25)
+    
+
 Base
 - tag calls with callstack

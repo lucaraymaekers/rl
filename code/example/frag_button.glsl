@@ -21,30 +21,17 @@ f32 DistanceFromPoint(v2 Center, f32 Radius)
 
 void main()
 {
-    // LocalPos -> -1.0f, 1.0f;
+    v2 Min = (ButtonMin*2.0f - 1.0f)*v2(1.0f, -1.0f);
+    v2 Max = (ButtonMax*2.0f - 1.0f)*v2(1.0f, -1.0f);
     
-    f32 MinX = ((ButtonMin.x*2.0f) - 1.0f);
-    f32 MaxX = ((ButtonMax.x*2.0f) - 1.0f);
-    f32 MinY = (1.0f - ButtonMax.y*2.0f);
-    f32 MaxY = (1.0f - ButtonMin.y*2.0f);
-    v2 Min = v2(MinX, MinY);
-    v2 Max = v2(MaxX, MaxY);
+    v2 Size = Max - Min;
+    v2 Pos = (LocalPos - Min);
     
-    if(LocalPos.x >= Min.x && LocalPos.x < Max.x &&
-       LocalPos.y >= Min.y && LocalPos.y < Max.y)
-    {
-        v2 Size = Max - Min;
-        v2 Pos = (LocalPos - Min);
-        
-        v2 Bilateral = 2.0f*(Pos/Size) - 1.0f;
-        
-        f32 Distance = DistanceFromPoint(Bilateral, 0.2f);
-        f32 Alpha = 1.0 - smoothstep(0.0, 0.01, Distance);
-        
-        if(Alpha > 0.0f)
-        {    
-            FragColor = v4(Color, Alpha);
-        }
-    }
+    v2 Bilateral = 2.0f*(Pos/Size) - 1.0f;
+    
+    f32 Distance = DistanceFromPoint(Bilateral, 0.2f);
+    f32 Alpha = 1.0 - smoothstep(0.0, 0.01, Distance);
+    
+    FragColor = v4(Color, Alpha);
     
 }

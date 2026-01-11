@@ -55,6 +55,15 @@ V2AddV2(v2 A, v2 B)
 }
 
 internal inline v2 
+V2AddF32(v2 A, f32 B)
+{
+    v2 Result = {};
+    Result.X = A.X + B;
+    Result.Y = A.Y + B;
+    return Result;
+}
+
+internal inline v2 
 V2MulF32(v2 A, f32 B)
 {
     v2 Result = {};
@@ -754,48 +763,52 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     // Draw Button
     {
+        glEnable(GL_BLEND);  
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
         glDisable(GL_DEPTH_TEST);
         
-        v2 Min = {0.05f, 0.11f};
+        v2 Min = {0.45f, 0.31f};
         v2 Max = {Min.X + 0.11f, Min.Y + 0.05f};
+        
+        v3 Color = {};
+        // Check if hovered or clicked.
+        {
+            v2 Pos = V2S32(Input->MouseX, Input->MouseY);
+            v2 Dim = V2S32(Buffer->Width, Buffer->Height);
+            v2 ButtonMin = V2MulV2(Min, Dim); 
+            v2 ButtonMax = V2MulV2(Max, Dim);
+            
+            b32 Hovered = false;
+            b32 Clicked = false;
+            Hovered = !!InBounds(Pos, ButtonMin, ButtonMax);;
+            Clicked = !!(Hovered && Input->Buttons[PlatformButton_Left].EndedDown);
+            
+            Color = ((Clicked) ? (v3){HexToRGBV3(Color_ButtonPressed)} :
+                     (Hovered) ? (v3){HexToRGBV3(Color_ButtonHovered)} :
+                     (v3){HexToRGBV3(Color_Button)});
+            
+            if(Clicked) 
+            {
+                Animate = false;
+                ResetApp(App);
+            }
+        }
         
         // Draw the button
         {
             // Prepare a quad
             s32 Count = 6;
             
-            Vertices[0] = {-1.0f, -1.0f, -1.0f}; // BL
-            Vertices[1] = { 1.0f, -1.0f, -1.0f}; // BR
-            Vertices[2] = {-1.0f,  1.0f, -1.0f}; // TL
-            Vertices[3] = {-1.0f,  1.0f, -1.0f}; // TL
-            Vertices[4] = { 1.0f,  1.0f, -1.0f}; // TR
-            Vertices[5] = { 1.0f, -1.0f, -1.0f}; // BR
+            v2 ClipMin = V2MulV2(V2AddF32(V2MulF32(Min, 2.0f), -1.0f), (v2){1.0f, -1.0f});
+            v2 ClipMax = V2MulV2(V2AddF32(V2MulF32(Max, 2.0f), -1.0f), (v2){1.0f, -1.0f});
             
-            v3 Color = {};
-            // Check if hovered or clicked.
-            {
-                v2 Pos = V2S32(Input->MouseX, Input->MouseY);
-                v2 Dim = V2S32(Buffer->Width, Buffer->Height);
-                v2 ButtonMin = V2MulV2(Min, Dim); 
-                v2 ButtonMax = V2MulV2(Max, Dim);
-                
-                b32 Hovered = false;
-                b32 Clicked = false;
-                Hovered = !!InBounds(Pos, ButtonMin, ButtonMax);;
-                Clicked = !!(Hovered && Input->Buttons[PlatformButton_Left].EndedDown);
-                
-                Color = ((Clicked) ? (v3){HexToRGBV3(Color_ButtonPressed)} :
-                         (Hovered) ? (v3){HexToRGBV3(Color_ButtonHovered)} :
-                         (v3){HexToRGBV3(Color_Button)});
-                
-                if(Clicked) 
-                {
-                    Animate = false;
-                    ResetApp(App);
-                }
-                
-                
-            }
+            Vertices[0] = {ClipMin.X, ClipMin.Y, -1.0f}; // BL
+            Vertices[1] = {ClipMax.X, ClipMin.Y, -1.0f}; // BR
+            Vertices[2] = {ClipMin.X, ClipMax.Y, -1.0f}; // TL
+            Vertices[3] = {ClipMin.X, ClipMax.Y, -1.0f}; // TL
+            Vertices[4] = {ClipMax.X, ClipMax.Y, -1.0f}; // TR
+            Vertices[5] = {ClipMax.X, ClipMin.Y, -1.0f}; // BR
+            for EachIndex(Idx, Count) Vertices[Idx].Z = -1.0f;
             
             ButtonShader = ProgramFromShaders(FrameArena, App,
                                               S8(Strs_ButtonVertexShaderPath), S8(Strs_ButtonFragmentShaderPath));
@@ -815,8 +828,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
             gl_handle UButtonMin = glGetUniformLocation(ButtonShader, "buttonMin");
             gl_handle UButtonMax = glGetUniformLocation(ButtonShader, "buttonMax");
             
-            glUniform2f(UButtonMin, Min.X, Min.Y);
-            glUniform2f(UButtonMax, Max.X, Max.Y);
+            glUniform2f(UButtonMin, Min.X, Max.Y);
+            glUniform2f(UButtonMax, Max.X, Min.Y);
             glUniform3f(UColor, Color.R, Color.G, Color.B);
             
             glDrawArrays(GL_TRIANGLES, 0, Count);
