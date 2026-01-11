@@ -19,6 +19,7 @@ fast=1
 
 # Targets
 clean=0
+all=0
 hash=0
 samples=0
 cuversine=0
@@ -33,7 +34,6 @@ Targets="hash/samples/cling/rldroid/cuversine/example [sort/app/gl/windows]\n"
 
 # Default
 [ "$#" = 0 ] && example=1 && app=1
-# [ "$#" = 0 ] && rldroid=1
 
 for Arg in "$@"; do eval "$Arg=1"; done
 # Exclusive flags

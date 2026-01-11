@@ -118,6 +118,17 @@ struct app_input
     f32 dtForFrame;
 };
 
+NO_WARNINGS_BEGIN
+#include "ex_font.h"
+NO_WARNINGS_END
+
+typedef struct model_path model_path;
+struct model_path
+{
+    str8 Model;
+    str8 Texture;
+};
+
 //~ App logic
 typedef struct app_state app_state;
 struct app_state
@@ -125,10 +136,14 @@ struct app_state
     arena *PermanentArena;
     random_series Series;
     
-    arena *NumbersArena;
+    app_font Font;
     
+    // App things
     v3 Offset;
     v2 Angle;
+    b32 Animate;
+    
+    model_path CurrentModel;
     
     str8 ExeDirPath;
 #if RL_INTERNAL

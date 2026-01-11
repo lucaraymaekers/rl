@@ -550,6 +550,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                     else if(Symbol == XK_Tab)       Button->Symbol = PlatformKey_Tab;
                                     else if(Symbol == XK_Return)    Button->Symbol = PlatformKey_Return;
                                     else if(Symbol == XK_BackSpace) Button->Symbol = PlatformKey_BackSpace;
+                                    else if(Symbol == XK_KP_Enter)  Button->Symbol = PlatformKey_Return;
                                     
                                     else if(Symbol >= XK_space && Symbol <= XK_asciitilde)
                                     {

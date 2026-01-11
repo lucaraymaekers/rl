@@ -22,6 +22,7 @@ struct OS_profiler
 //~ Globals
 global_variable u8 LogBuffer[KB(64)];
 global_variable OS_profiler GlobalProfiler = {}; 
+global_variable char *GlobalProfilerPrefix = ""; 
 
 //~ Functions
 #define ENTRY_POINT(Name) void *Name(entry_point_params *Params)
@@ -43,7 +44,7 @@ internal void  OS_ChangeDirectory(char *Path);
 //- OS agnostic, implemented in `base_os.c`.
 internal inline f32 OS_SecondsElapsed(s64 Start, s64 End);
 internal inline f32 OS_MSElapsed(s64 Start, s64 End);
-internal void OS_ProfileInit();
+internal void OS_ProfileInit(char *Prefix);
 internal void OS_ProfileAndPrint(char *Label);
 
 #define Log(Format, ...)      OS_PrintFormat((char *)(Format), ##__VA_ARGS__)

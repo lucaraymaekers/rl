@@ -98,7 +98,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         
         while(*Running)
         {
-            OS_ProfileInit();
+            OS_ProfileInit("P");
             
             umm CPUBackPos = BeginScratch(FrameArena);
             
@@ -113,15 +113,15 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 NewInput->dtForFrame = TargetSecondsPerFrame;
             }
             
-            OS_ProfileAndPrint("P_InitSetup");
+            OS_ProfileAndPrint("InitSetup");
             
             // Load application code
             P_LoadAppCode(FrameArena, &Code, &AppState, &LastWriteTime);
-            OS_ProfileAndPrint("P_Code");
+            OS_ProfileAndPrint("Code");
             
             P_ProcessMessages(PlatformContext, NewInput, &Buffer, Running);
             
-            OS_ProfileAndPrint("P_Messages");
+            OS_ProfileAndPrint("Messages");
             
             if(CharPressed(NewInput, 'p', PlatformKeyModifier_Alt)) Paused = !Paused;
             
@@ -130,11 +130,11 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 *Running = *Running &&  !Code.UpdateAndRender(ThreadContext, &AppState, FrameArena, &Buffer, NewInput);
             }
             
-            OS_ProfileAndPrint("P_UpdateAndRender");
+            OS_ProfileAndPrint("UpdateAndRender");
             
             P_UpdateImage(PlatformContext, &Buffer);
             
-            OS_ProfileAndPrint("P_UpdateImage");
+            OS_ProfileAndPrint("UpdateImage");
             
             s64 WorkCounter = OS_GetWallClock();
             f32 WorkMSPerFrame = OS_MSElapsed(LastCounter, WorkCounter);
@@ -197,7 +197,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
             Swap(OldInput, NewInput);
             
-            OS_ProfileAndPrint("P_Sleep");
+            OS_ProfileAndPrint("Sleep");
             
             FlipWallClock = OS_GetWallClock();
             

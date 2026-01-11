@@ -6,15 +6,14 @@
 #define f32 float
 
 in v3 pos;
+in v3 color;
+in v2 buttonMin;
+in v2 buttonMax;
 
-out v3 Color;
+flat out v3 Color;
 out v2 LocalPos;
-out v2 ButtonMin;
-out v2 ButtonMax;
-
-uniform v3 color;
-uniform v2 buttonMin;
-uniform v2 buttonMax;
+flat out v2 ButtonMin;
+flat out v2 ButtonMax;
 
 void main()
 {

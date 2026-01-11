@@ -1,18 +1,7 @@
 #include "base/base.h"
 #include "ex_platform.h"
 
-NO_WARNINGS_BEGIN
-#if RL_FAST_COMPILE
-# define RL_LIBS_INCLUDE_ONLY
-# include "lib/rl_libs.h"
-# include "lib/gl_core_3_3_debug.h"
-# include "lib/stb_image.h"
-# include "lib/stb_truetype.h"
-# include "lib/rl_font.h"
-#else
-# include "lib/rl_libs.h"
-#endif
-NO_WARNINGS_END
+#include "rl_libs.h"
 
 typedef struct vertex vertex;
 struct vertex
@@ -117,7 +106,7 @@ CompileShaderFromSource(str8 Source, s32 Type)
 C_LINKAGE 
 UPDATE_AND_RENDER(UpdateAndRender)
 {
-    OS_ProfileInit();
+    OS_ProfileInit("A");
     
     ThreadContextSelect(Context);
     
