@@ -1,3 +1,4 @@
+#define BASE_NO_ENTRYPOINT
 #include "base/base.h"
 #include "ex_platform.h"
 

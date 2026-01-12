@@ -133,7 +133,11 @@ LinuxSigIntHandler(int Signal)
 internal P_context
 P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
 {
+#if EX_FORCE_X11
+    b32 OpenGLMode = false;
+#else
     b32 OpenGLMode = true;
+#endif
     
     P_context Result = 0;
     s32 XRet = 0;

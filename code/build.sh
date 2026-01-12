@@ -182,6 +182,7 @@ fi
 AppCompile()
 {
  Dir="$1"
+	ExtraFlags="${2:-}"
 
  AppFlags="-fPIC --shared" 
 
@@ -191,14 +192,14 @@ AppCompile()
   [ ! -f "$LibsFile" ] && C_Compile "$Dir"/rl_libs.h "$LibsFile" "-fPIC -x c++ -c -Wno-unused-command-line-argument"
   AppFlags="$AppFlags -DRL_FAST_COMPILE=1 $LibsFile"
  fi
- C_Compile "$Dir"/ex_app.cpp ex_app.so "$AppFlags"
- C_Compile $(Strip $Dir/ex_platform.cpp) "-lX11 -lGL -lGLX"
+ C_Compile "$Dir"/ex_app.cpp ex_app.so "$AppFlags $ExtraFlags"
+ C_Compile $(Strip $Dir/ex_platform.cpp) "-lX11 -lGL -lGLX $ExtraFlags"
 }
 
 if [ "$example" = 1 ]
 then
  [ "$app"  = 1 ] && AppCompile ./example
- [ "$sort" = 1 ] && AppCompile ./example/sort
+ [ "$sort" = 1 ] && AppCompile ./example/sort "-DEX_FORCE_X11=1"
  [ "$gl"   = 1 ] && AppCompile ./example/gl
 	if [ "$windows" = 1 ]
 	then
