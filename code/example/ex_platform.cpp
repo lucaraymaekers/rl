@@ -9,12 +9,6 @@
 # include "ex_platform_windows.cpp"
 #endif
 
-#if 1
-#define AppLog(Format, ...) do {if(*Running)Log(Format, ##__VA_ARGS__);} while(0)
-#else
-#define AppLog(Format, ...) NoOp
-#endif
-
 C_LINKAGE ENTRY_POINT(EntryPoint)
 {
     if(LaneIndex() == 0)
@@ -131,7 +125,10 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
             if(!Paused)
             {
-                *Running = *Running &&  !Code.UpdateAndRender(ThreadContext, &AppState, FrameArena, &Buffer, NewInput);
+                b32 ShouldQuit = Code.UpdateAndRender(ThreadContext, &AppState, FrameArena, &Buffer, NewInput);
+                // NOTE(luca): Since UpdateAndRender can take some time, there could have been a signal sent to INT the app.
+                ReadWriteBarrier;
+                *Running = *Running && !ShouldQuit;
             }
             
             OS_ProfileAndPrint("UpdateAndRender");
@@ -180,19 +177,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 LastCounter = EndCounter;
             }
             
-#if 1            
             NewInput->Text.Buffer[NewInput->Text.Count].Codepoint = 0;
-            f32 FPS = Min(1000.0f/WorkMSPerFrame, GameUpdateHz);
-            AppLog("'%c' (%d, %d) 1:%c 2:%c 3:%c", 
-                   (u8)NewInput->Text.Buffer[0].Codepoint,
-                   NewInput->MouseX, NewInput->MouseY,
-                   (NewInput->Buttons[PlatformButton_Left  ].EndedDown ? 'x' : 'o'),
-                   (NewInput->Buttons[PlatformButton_Middle].EndedDown ? 'x' : 'o'),
-                   (NewInput->Buttons[PlatformButton_Right ].EndedDown ? 'x' : 'o')); 
-            
-            AppLog(" %.2fms/f %.0fFPS", (f64)WorkMSPerFrame, (f64)FPS);
-            AppLog("\n");
-#endif
             
 #if RL_PROFILE
             // TODO(luca): Sometimes we hit more than 4ms/f
@@ -202,6 +187,17 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             Swap(OldInput, NewInput);
             
             OS_ProfileAndPrint("Sleep");
+            
+            f32 FPS = Min(1000.0f/WorkMSPerFrame, GameUpdateHz);
+            Log("'%c' (%d, %d) 1:%c 2:%c 3:%c", 
+                (u8)NewInput->Text.Buffer[0].Codepoint,
+                NewInput->MouseX, NewInput->MouseY,
+                (NewInput->Buttons[PlatformButton_Left  ].EndedDown ? 'x' : 'o'),
+                (NewInput->Buttons[PlatformButton_Middle].EndedDown ? 'x' : 'o'),
+                (NewInput->Buttons[PlatformButton_Right ].EndedDown ? 'x' : 'o')); 
+            
+            Log(" %.2fms/f %.0fFPS", (f64)WorkMSPerFrame, (f64)FPS);
+            Log("\n");
             
             FlipWallClock = OS_GetWallClock();
             

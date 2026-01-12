@@ -74,6 +74,7 @@ OS_ReadEntireFileIntoMemory(char *FileName)
         }
         else
         {
+            DebugBreak;
             ErrorLog("Could not read file '%s', " ERRNO_FMT, FileName, ERRNO_ARG);
         }
         

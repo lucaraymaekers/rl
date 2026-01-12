@@ -126,6 +126,7 @@ IsExtensionSupported(const char *ExtList, char *Extension)
 internal void
 LinuxSigIntHandler(int Signal)
 {
+    // TODO(luca): Add the receivied signal as an event to a queue to unify the processing.
     *GlobalRunning = false;
 }
 

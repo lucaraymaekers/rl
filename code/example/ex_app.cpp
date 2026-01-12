@@ -13,6 +13,20 @@ typedef unsigned int gl_handle;
 
 typedef s32 face[4][3];
 
+typedef struct button_render_data button_render_data;
+struct button_render_data
+{
+    s32 ButtonsCount;
+    v3 *Vertices;
+    v3 *Colors;
+    v2 *Minima;
+    v2 *Maxima;
+    gl_handle BackgroundShader;
+    gl_handle TextShader;
+    gl_handle VBO;
+    gl_handle Tex[1];
+};
+
 #define New(type, Name, Array, Count) type *Name = Array + Count; Count += 1;
 
 //~ Constants
@@ -433,7 +447,6 @@ ResetApp(app_state *App)
     App->Animate = false;
 }
 
-
 str8 FormatText(arena *Arena, char *Format, ...)
 {
     str8 Result = {};
@@ -451,28 +464,25 @@ str8 FormatText(arena *Arena, char *Format, ...)
 }
 
 internal b32
-DrawButton(arena *Arena, app_offscreen_buffer *Buffer, app_offscreen_buffer *TextImage, 
-           app_input *Input, app_font *Font,
-           gl_handle ButtonShader, gl_handle TextShader, gl_handle *VBO, gl_handle Tex, 
-           v2 Min, v2 Max, str8 Text)
+AddButton(arena *Arena, v2 BufferDim, app_offscreen_buffer *TextImage, 
+          app_input *Input, app_font *Font, 
+          button_render_data *Render,
+          v2 Min, v2 Max, str8 Text)
 {
     b32 Clicked = false;
     
-    v3 Colors[6] = {};
-    v3 Vertices[6] = {};
-    v2 ButtonMinima[6] = {};
-    v2 ButtonMaxima[6] = {};
-    
-    // Prepare a quad
-    s32 Count = 6;
+    v3 *Vertices = Render->Vertices + (6*Render->ButtonsCount);
+    v3 *Colors = Render->Colors + (6*Render->ButtonsCount);
+    v2 *ButtonMinima = Render->Minima + (6*Render->ButtonsCount);
+    v2 *ButtonMaxima = Render->Maxima + (6*Render->ButtonsCount);
     
     v3 Color = {};
     // Input
     {
+        // TODO(luca): No conversion needed if textimage was the same of the same dimensions as the buffer.
         v2 Pos = V2S32(Input->MouseX, Input->MouseY);
-        v2 Dim = V2S32(Buffer->Width, Buffer->Height);
-        v2 ButtonMin = V2MulV2(Min, Dim); 
-        v2 ButtonMax = V2MulV2(Max, Dim);
+        v2 ButtonMin = V2MulV2(Min, BufferDim); 
+        v2 ButtonMax = V2MulV2(Max, BufferDim);
         
         b32 Hovered = false;
         Hovered = !!InBounds(Pos, ButtonMin, ButtonMax);;
@@ -483,10 +493,6 @@ DrawButton(arena *Arena, app_offscreen_buffer *Buffer, app_offscreen_buffer *Tex
                  V3(HexToRGBV3(Color_Button)));
     }
     
-    glEnable(GL_BLEND);  
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
-    glDisable(GL_DEPTH_TEST);
-    
     // Draw button background
     {    
         // TODO(luca): Use one big buffer
@@ -495,19 +501,9 @@ DrawButton(arena *Arena, app_offscreen_buffer *Buffer, app_offscreen_buffer *Tex
         v2 ClipMax = V2MulV2(V2AddF32(V2MulF32(Max, 2.0f), -1.0f), V2(1.0f, -1.0f));
         
         MakeQuadV3(Vertices, ClipMin, ClipMax, -1.0f);
-        
         SetProvokingV3(Colors, Color);
         SetProvokingV2(ButtonMinima, Min);
         SetProvokingV2(ButtonMaxima, Max);
-        
-        glUseProgram(ButtonShader);
-        
-        gl_LoadFloatsIntoBuffer(VBO[0], ButtonShader, "pos", Count, 3, Vertices);
-        gl_LoadFloatsIntoBuffer(VBO[1], ButtonShader, "color", Count, 3, Colors);
-        gl_LoadFloatsIntoBuffer(VBO[2], ButtonShader, "buttonMin", Count, 2, ButtonMinima);
-        gl_LoadFloatsIntoBuffer(VBO[3], ButtonShader, "buttonMax", Count, 2, ButtonMaxima);
-        
-        glDrawArrays(GL_TRIANGLES, 0, Count);
     }
     
     // Draw the text
@@ -522,6 +518,8 @@ DrawButton(arena *Arena, app_offscreen_buffer *Buffer, app_offscreen_buffer *Tex
         rlf_DrawText(Arena, TextImage, Font, 
                      HeightPx, Text, {X, Y + Baseline}, Color_ButtonText, false);
     }
+    
+    Render->ButtonsCount += 1;
     
     return Clicked;
 }
@@ -623,7 +621,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     OS_ProfileAndPrint("Input");
     
-    umm Count = 0;
+    umm ModelVerticesCount = 0;
     v3 *Vertices = 0;
     v2 *TexCoords = 0; 
     v3 *Normals = 0;
@@ -728,10 +726,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
             s32 Indices[] = {0, 1, 2, 0, 2, 3};
             s32 IndicesCount = ArrayCount(Indices);
             
-            Count = InFacesCount*IndicesCount;
-            Vertices = PushArray(FrameArena, v3, Count);
-            TexCoords = PushArray(FrameArena, v2, Count);
-            Normals = PushArray(FrameArena, v3, Count);
+            ModelVerticesCount = InFacesCount*IndicesCount;
+            Vertices = PushArray(FrameArena, v3, ModelVerticesCount);
+            TexCoords = PushArray(FrameArena, v2, ModelVerticesCount);
+            Normals = PushArray(FrameArena, v3, ModelVerticesCount);
             
             for EachIndex(FaceIdx, InFacesCount)
             {
@@ -757,158 +755,194 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
         
         OS_FreeFileMemory(In);
+        
+        OS_ProfileAndPrint("Obj read");
     }
     
-    OS_ProfileAndPrint("Obj read");
     
-    s32 Major, Minor;
-    gl_handle VAO, VBO[8], Tex[2], ModelShader, TextShader, ButtonShader;
-    // Setup
-    { 
-        glGetIntegerv(GL_MAJOR_VERSION, &Major);
-        glGetIntegerv(GL_MINOR_VERSION, &Minor);
-        
-        b32 Fill = true;
-        s32 Mode = (Fill) ? GL_FILL : GL_LINE;
-        glPolygonMode(GL_FRONT_AND_BACK, Mode);
-        
-        glViewport(0, 0, Buffer->Width, Buffer->Height);
-        
-        ModelShader = gl_ProgramFromShaders(FrameArena, App, 
-                                            S8(Strs_VertexShaderPath),
-                                            S8(Strs_FragmentShaderPath));
-        ButtonShader = gl_ProgramFromShaders(FrameArena, App,
-                                             S8(Strs_ButtonVertexShaderPath), S8(Strs_ButtonFragmentShaderPath));
-        TextShader = gl_ProgramFromShaders(FrameArena, App, 
-                                           S8(Strs_TextVertexShaderPath),
-                                           S8(Strs_TextFragmentShaderPath));
-    }
+    // TODO(luca): Proper assets/texture loading.
+    int Width, Height, Components;
+    char *ImagePath = PathFromExe(FrameArena, App, App->CurrentModel.Texture);
+    u8 *Image = stbi_load(ImagePath, &Width, &Height, &Components, 0);
     
-    glGenVertexArrays(1, &VAO); 
-    glBindVertexArray(VAO);
-    
-    glGenTextures(ArrayCount(Tex), &Tex[0]);
-    glGenBuffers(ArrayCount(VBO), &VBO[0]);
-    
-    OS_ProfileAndPrint("GL Init");
-    
-    // Draw model
-    {
-        gl_handle UOffset, UAngle, UColor;
+    app_offscreen_buffer TextImage = {};
+    button_render_data ButtonRenderData = {};
+    // Create UI
+    {    
+        // NOTE(luca): For software rasterization
+        TextImage.Width = 960;
+        TextImage.Height = 960;
+        TextImage.BytesPerPixel = 4;
+        TextImage.Pitch = TextImage.BytesPerPixel*TextImage.Width;
+        umm Size = TextImage.BytesPerPixel*(TextImage.Height*TextImage.Width);
+        TextImage.Pixels = PushArray(FrameArena, u8, Size);
+        MemorySet(TextImage.Pixels, 0, Size);
         
-        glUseProgram(ModelShader);
-        
-        gl_LoadFloatsIntoBuffer(VBO[0], ModelShader, "pos", Count, 3, Vertices);
-        gl_LoadFloatsIntoBuffer(VBO[1], ModelShader, "tex", Count, 2, TexCoords);
-        
-        UOffset = glGetUniformLocation(ModelShader, "offset");
-        UAngle = glGetUniformLocation(ModelShader, "angle");
-        UColor = glGetUniformLocation(ModelShader, "color");
-        
-        
-        glEnable(GL_DEPTH_TEST);
-        
-        v3 Color = {HexToRGBV3(Color_Point)};
-        f32 XAngle = Pi32 * App->Angle.X;
-        f32 YAngle = Pi32 * App->Angle.Y;
-        glUniform2f(UAngle, XAngle, YAngle);
-        glUniform3f(UOffset, App->Offset.X, App->Offset.Y, App->Offset.Z);
-        glUniform3f(UColor, Color.X, Color.Y, Color.Z);
-        
-        // TODO(luca): Proper assets/texture loading.
-        {
-            int Width, Height, Components;
-            u8 *Image = 0;
-            char *ImagePath = PathFromExe(FrameArena, App, App->CurrentModel.Texture);
-            Image = stbi_load(ImagePath, &Width, &Height, &Components, 0);
+        // Add Buttons
+        {        
+            s32 TotalButtonsVerticesCount = 6*(ArrayCount(Models) + 1);
+            ButtonRenderData.Vertices = PushArray(FrameArena, v3, TotalButtonsVerticesCount);
+            ButtonRenderData.Colors = PushArray(FrameArena, v3, TotalButtonsVerticesCount);
+            ButtonRenderData.Minima = PushArray(FrameArena, v2, TotalButtonsVerticesCount);
+            ButtonRenderData.Maxima = PushArray(FrameArena, v2, TotalButtonsVerticesCount);
+            v2 BufferDim = V2S32(Buffer->Width, Buffer->Height);
             
-            gl_LoadTextureFromImage(Tex[0], Width, Height, Image, GL_RGBA, ModelShader);
+            // Reset button
+            {    
+                v2 Min = {0.03f, 0.25f};
+                v2 Max = {Min.X + 0.11f, Min.Y + 0.05f};
+                
+                b32 Clicked = AddButton(FrameArena, BufferDim, &TextImage, Input, &App->Font,
+                                        &ButtonRenderData,
+                                        Min, Max, S8(" Reset"));
+                if(Clicked) 
+                {
+                    ResetApp(App);
+                }
+            }
+            
+            // Models button list
+            v2 Min = {0.03f, 0.31f};
+            for EachIndex(Idx, ArrayCount(Models))
+            {
+                v2 Max = {Min.X + 0.11f, Min.Y + 0.05f};
+                
+                str8 Text = FormatText(FrameArena, " %s", ModelNames[Idx]);
+                if(Text.Size > 6) Text.Size = 6;
+                
+                b32 Clicked = AddButton(FrameArena, BufferDim, &TextImage, Input, &App->Font, 
+                                        &ButtonRenderData,
+                                        Min, Max, Text);
+                if(Clicked) App->CurrentModel = Models[Idx];
+                Min.y += 0.06f;
+            }
+            
+            Assert(ButtonRenderData.ButtonsCount == TotalButtonsVerticesCount/6);
+            
+            OS_ProfileAndPrint("Add buttons");
+        }
+    }
+    
+    // Rendering
+    {        
+        s32 Major, Minor;
+        gl_handle VAO, VBO[8], Tex[2], ModelShader, TextShader, ButtonShader;
+        // Setup
+        { 
+            glGetIntegerv(GL_MAJOR_VERSION, &Major);
+            glGetIntegerv(GL_MINOR_VERSION, &Minor);
+            
+            b32 Fill = true;
+            s32 Mode = (Fill) ? GL_FILL : GL_LINE;
+            glPolygonMode(GL_FRONT_AND_BACK, Mode);
+            
+            glViewport(0, 0, Buffer->Width, Buffer->Height);
+            
+            ModelShader = gl_ProgramFromShaders(FrameArena, App, 
+                                                S8(Strs_VertexShaderPath),
+                                                S8(Strs_FragmentShaderPath));
+            ButtonShader = gl_ProgramFromShaders(FrameArena, App,
+                                                 S8(Strs_ButtonVertexShaderPath), S8(Strs_ButtonFragmentShaderPath));
+            TextShader = gl_ProgramFromShaders(FrameArena, App, 
+                                               S8(Strs_TextVertexShaderPath),
+                                               S8(Strs_TextFragmentShaderPath));
+            
+            glGenVertexArrays(1, &VAO); 
+            glBindVertexArray(VAO);
+            
+            glGenTextures(ArrayCount(Tex), &Tex[0]);
+            glGenBuffers(ArrayCount(VBO), &VBO[0]);
+            
+            OS_ProfileAndPrint("GL Init");
         }
         
         glClearColor(HexToRGBV3(Color_BackgroundSecond), 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
-        glDrawArrays(GL_TRIANGLES, 0, (int)Count);
-    }
-    
-    OS_ProfileAndPrint("GL Draw model");
-    
-    // NOTE(luca): For software rasterization
-    app_offscreen_buffer TextImage = {};
-    TextImage.Width = 960;
-    TextImage.Height = 960;
-    TextImage.BytesPerPixel = 4;
-    TextImage.Pitch = TextImage.BytesPerPixel*TextImage.Width;
-    umm Size = TextImage.BytesPerPixel*(TextImage.Height*TextImage.Width);
-    TextImage.Pixels = PushArray(FrameArena, u8, Size);
-    MemorySet(TextImage.Pixels, 0, Size);
-    
-    // Draw Button
-    {    
-        v2 Min = {0.03f, 0.25f};
-        v2 Max = {Min.X + 0.11f, Min.Y + 0.05f};
-        
-        b32 Clicked = DrawButton(FrameArena, Buffer, &TextImage, Input, &App->Font,
-                                 ButtonShader, TextShader, VBO, Tex[1],
-                                 Min, Max, S8(" Reset"));
-        if(Clicked) 
+        // Draw model
         {
-            ResetApp(App);
+            gl_handle UOffset, UAngle, UColor;
+            
+            glUseProgram(ModelShader);
+            
+            gl_LoadFloatsIntoBuffer(VBO[0], ModelShader, "pos", ModelVerticesCount, 3, Vertices);
+            gl_LoadFloatsIntoBuffer(VBO[1], ModelShader, "tex", ModelVerticesCount, 2, TexCoords);
+            
+            UOffset = glGetUniformLocation(ModelShader, "offset");
+            UAngle = glGetUniformLocation(ModelShader, "angle");
+            UColor = glGetUniformLocation(ModelShader, "color");
+            
+            v3 Color = {HexToRGBV3(Color_Point)};
+            f32 XAngle = Pi32 * App->Angle.X;
+            f32 YAngle = Pi32 * App->Angle.Y;
+            glUniform2f(UAngle, XAngle, YAngle);
+            glUniform3f(UOffset, App->Offset.X, App->Offset.Y, App->Offset.Z);
+            glUniform3f(UColor, Color.X, Color.Y, Color.Z);
+            
+            gl_LoadTextureFromImage(Tex[0], Width, Height, Image, GL_RGBA, ModelShader);
+            
+            glEnable(GL_DEPTH_TEST);
+            
+            glDrawArrays(GL_TRIANGLES, 0, (int)ModelVerticesCount);
+            
+            OS_ProfileAndPrint("GL Draw model");
+        }
+        
+        // Draw UI
+        {
+            glEnable(GL_BLEND);  
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
+            glDisable(GL_DEPTH_TEST);
+            
+            // Buttons
+            {            
+                s32 Count = 6*ButtonRenderData.ButtonsCount;
+                glUseProgram(ButtonShader);
+                
+                gl_LoadFloatsIntoBuffer(VBO[0], ButtonShader, "pos", Count, 3, ButtonRenderData.Vertices);
+                gl_LoadFloatsIntoBuffer(VBO[1], ButtonShader, "color", Count, 3, ButtonRenderData.Colors);
+                gl_LoadFloatsIntoBuffer(VBO[2], ButtonShader, "buttonMin", Count, 2, ButtonRenderData.Minima);
+                gl_LoadFloatsIntoBuffer(VBO[3], ButtonShader, "buttonMax", Count, 2, ButtonRenderData.Maxima);
+                
+                glDrawArrays(GL_TRIANGLES, 0, Count);
+            }
+            
+            // Text
+            {
+                s32 Count = 6;
+                
+                glUseProgram(TextShader);
+                gl_LoadTextureFromImage(Tex[0], TextImage.Width, TextImage.Height, TextImage.Pixels, GL_BGRA, TextShader);
+                
+                MakeQuadV3(Vertices, V2(-1.0f, -1.0f), V2(1.0f, 1.0f), -1.0f);
+                for EachIndex(Idx, Count) 
+                {
+                    Vertices[Idx].Z = -1.0f;
+                    TexCoords[Idx] = V2MulF32(V2AddF32(V2(Vertices[Idx].X, Vertices[Idx].Y), 1.0f), 0.5f);
+                    TexCoords[Idx].Y = (1.0f - TexCoords[Idx].Y);
+                }
+                
+                gl_LoadFloatsIntoBuffer(VBO[0], TextShader, "pos", Count, 3, Vertices);
+                gl_LoadFloatsIntoBuffer(VBO[1], TextShader, "tex", Count, 2, TexCoords);
+                
+                glDrawArrays(GL_TRIANGLES, 0, Count);
+            }
+            
+            OS_ProfileAndPrint("GL Draw UI");
+        }
+        
+        // Cleanup
+        {    
+            glDeleteBuffers(ArrayCount(VBO), &VBO[0]);
+            glDeleteVertexArrays(1, &VAO);
+            glDeleteTextures(ArrayCount(Tex), &Tex[0]);
+            glDeleteProgram(ModelShader);
+            glDeleteProgram(TextShader);
+            glDeleteProgram(ButtonShader);
+            OS_ProfileAndPrint("GL Cleanup");
         }
     }
     
-    // Draw Button
-    v2 Min = {0.03f, 0.31f};
-    for EachIndex(Idx, ArrayCount(Models))
-    {
-        v2 Max = {Min.X + 0.11f, Min.Y + 0.05f};
-        
-        str8 Text = FormatText(FrameArena, " %s", ModelNames[Idx]);
-        if(Text.Size > 6) Text.Size = 6;
-        
-        b32 Clicked = DrawButton(FrameArena, Buffer, &TextImage, Input, &App->Font, 
-                                 ButtonShader, TextShader, VBO, Tex[1],
-                                 Min, Max, Text);
-        if(Clicked) App->CurrentModel = Models[Idx];
-        Min.y += 0.06f;
-    }
-    
-    // Draw all text
-    {    
-        glUseProgram(TextShader);
-        
-        gl_LoadTextureFromImage(Tex[1], TextImage.Width, TextImage.Height, TextImage.Pixels, GL_BGRA, TextShader);
-        
-        s32 Count = 6;
-        MakeQuadV3(Vertices, V2(-1.0f, -1.0f), V2(1.0f, 1.0f), -1.0f);
-        MakeQuadV2(TexCoords, V2(0.0f, 0.0f), V2(1.0f, 1.0f));
-        
-        for EachIndex(Idx, Count) 
-        {
-            Vertices[Idx].Z = -1.0f;
-            TexCoords[Idx].X = (Vertices[Idx].X + 1.0f) * 0.5f;
-            TexCoords[Idx].Y = (1.0f - (Vertices[Idx].Y + 1.0f) * 0.5f);
-        }
-        
-        gl_LoadFloatsIntoBuffer(VBO[0], TextShader, "pos", Count, 3, Vertices);
-        gl_LoadFloatsIntoBuffer(VBO[1], TextShader, "tex", Count, 2, TexCoords);
-        
-        glDrawArrays(GL_TRIANGLES, 0, Count);
-    }
-    
-    OS_ProfileAndPrint("GL Draw buttons");
-    
-    // Cleanup
-    {    
-        glDeleteBuffers(ArrayCount(VBO), &VBO[0]);
-        glDeleteVertexArrays(1, &VAO);
-        glDeleteTextures(ArrayCount(Tex), &Tex[0]);
-        glDeleteProgram(ModelShader);
-        glDeleteProgram(TextShader);
-        glDeleteProgram(ButtonShader);
-    }
-    
-    OS_ProfileAndPrint("GL Cleanup");
     
     return ShouldQuit;
 }

@@ -14,7 +14,7 @@
 #elif _MSC_VER
 # define COMPILER_MSVC 1
 #elif __GNUC__
-# define COMPILER_GNU 1
+# define  COMPILER_GNU 1
 #endif
 
 // Detect language
@@ -114,6 +114,12 @@ Swap(type& A, type& B) { type T = A; A = B; B = T; }
 # define Trap() __builtin_trap();
 #elif OS_WINDOWS
 # define Trap() __debugbreak();
+#endif
+
+#if COMPILER_MSVC
+# define ReadWriteBarrier _ReadBarrier() _WriteBarrier() 
+#elif COMPILER_GNU || COMPILER_CLANG
+# define ReadWriteBarrier __asm__ __volatile__ ("" : : : "memory")
 #endif
 
 #if OS_LINUX
