@@ -295,50 +295,19 @@ struct range_s64
 typedef struct v2 v2;
 struct v2
 {
-    union { f32 X, x; };
-    union { f32 Y, y; };
+    f32 X, Y;
 };
 
 typedef struct v3 v3;
 struct v3
 {
-    union 
-    {
-        struct 
-        {
-            union { f32 X, x; };
-            union { f32 Y, y; };
-            union { f32 Z, z; };
-        };
-        struct
-        {
-            union { f32 R, r; };
-            union { f32 G, g; };
-            union { f32 B, b; };
-        };
-    };
+    f32 X, Y, Z;
 };
 
 typedef struct v4 v4;
 struct v4
 {
-    union
-    {
-        struct
-        {
-            union { f32 X, x; };
-            union { f32 Y, y; };
-            union { f32 Z, z; };
-            union { f32 W, w; };
-        };
-        struct
-        {
-            union { f32 R, r; };
-            union { f32 G, g; };
-            union { f32 B, b; };
-            union { f32 A, a; };
-        };
-    };
+    f32 X, Y, Z, W;
 };
 
 //~ Globals

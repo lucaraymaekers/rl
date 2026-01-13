@@ -83,19 +83,11 @@ InBounds(v2 A, v2 Min, v2 Max)
     return Result;
 }
 
-internal inline void
-SetProvokingV3(v3 Quad[6], v3 Vertex)
-{
-    Quad[2] = Vertex;
-    Quad[5] = Vertex;
-}
-
-internal inline void
-SetProvokingV2(v2 Quad[6], v2 Vertex)
-{
-    Quad[2] = Vertex;
-    Quad[5] = Vertex;
-}
+#define SetProvokingFunc(FuncName, type) \
+internal inline void FuncName(type Quad[6], type Value) { Quad[2] = Value; Quad[5] = Value; }
+SetProvokingFunc(SetProvokingV3, v3)
+SetProvokingFunc(SetProvokingV2, v2)
+SetProvokingFunc(SetProvokingF32, f32)
 
 internal inline void
 MakeQuadV2(v2 Quad[6], v2 Min, v2 Max)

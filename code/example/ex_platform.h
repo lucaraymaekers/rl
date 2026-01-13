@@ -118,42 +118,44 @@ struct app_input
     f32 dtForFrame;
 };
 
-NO_WARNINGS_BEGIN
-#include "ex_font.h"
-NO_WARNINGS_END
-
-typedef struct model_path model_path;
-struct model_path
+typedef struct app_memory app_memory;
+struct app_memory
 {
-    str8 Model;
-    str8 Texture;
-};
-
-//~ App logic
-typedef struct app_state app_state;
-struct app_state
-{
-    arena *PermanentArena;
-    random_series Series;
-    
-    app_font Font;
-    
-    // App things
-    v3 Offset;
-    v2 Angle;
-    b32 Animate;
-    
-    model_path CurrentModel;
+    void *AppState;
     
     str8 ExeDirPath;
 #if RL_INTERNAL
-    b32 DebuggerAttached;
+    b32 IsDebuggerAttached;
 #endif
     b32 Reloaded;
+    
     b32 Initialized;
 };
 
-//- Helper functions 
+#define UPDATE_AND_RENDER(Name) b32 Name(thread_context *Context, app_memory *Memory, arena *PermanentArena, arena *FrameArena, app_offscreen_buffer *Buffer, app_input *Input)
+typedef UPDATE_AND_RENDER(update_and_render);
+
+UPDATE_AND_RENDER(UpdateAndRenderStub) { return false; }
+
+typedef struct app_code app_code;
+struct app_code
+{
+    update_and_render *UpdateAndRender;
+    
+    char *LibraryPath;
+    umm LibraryHandle;
+    b32 Loaded;
+};
+
+//~ API
+typedef umm P_context;
+
+internal P_context P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running);
+internal void      P_UpdateImage(P_context Context, app_offscreen_buffer *Buffer);
+internal void      P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buffer, b32 *Running);
+internal void      P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory, s64 *LastWriteTime);
+
+//- Helpers 
 internal inline b32 
 WasPressed(app_button_state State)
 {
@@ -191,11 +193,11 @@ CharPressed(app_input *Input, rune Codepoint, s32 Modifiers)
 }
 
 internal char *
-PathFromExe(arena *Arena, app_state *App, str8 Path)
+PathFromExe(arena *Arena, app_memory *Memory, str8 Path)
 {
     char *Result = 0;
     
-    str8 Base = App->ExeDirPath;
+    str8 Base = Memory->ExeDirPath;
     umm Size = Base.Size + Path.Size + 1;
     
     Result = PushArray(Arena, char, Size);
@@ -227,27 +229,4 @@ ProcessKeyPress(app_button_state *ButtonState, b32 IsDown)
     }
 }
 
-//~ Functions
-#define UPDATE_AND_RENDER(Name) b32 Name(thread_context *Context, app_state *App, arena *FrameArena, app_offscreen_buffer *Buffer, app_input *Input)
-typedef UPDATE_AND_RENDER(update_and_render);
-
-UPDATE_AND_RENDER(UpdateAndRenderStub) { return false; }
-
-typedef struct app_code app_code;
-struct app_code
-{
-    update_and_render *UpdateAndRender;
-    
-    char *LibraryPath;
-    umm LibraryHandle;
-    b32 Loaded;
-};
-
-//~ API
-typedef umm P_context;
-
-internal P_context P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running);
-internal void      P_UpdateImage(P_context Context, app_offscreen_buffer *Buffer);
-internal void      P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buffer, b32 *Running);
-internal void      P_LoadAppCode(arena *Arena, app_code *Code, app_state *App, s64 *LastWriteTime);
 #endif //PLATFORM_H

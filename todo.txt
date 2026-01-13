@@ -1,12 +1,28 @@
 Example App
+- UI scrollable infinite Button list
+- Buttons
+  - animate button clicks
+  - different color when button is for the selected model
 - mouse dragging
 - animating "bones"
-- Path from exe -> simplify
-- Create all path strings at initialization
-- mdesk
-- Investigate button drawing performance.
-- Build buttons and render after.
+- metadesk for asset files
+  - Create all path strings at initialization
+  - Create enums for these paths
+  - What if the path must be dynamically determined ? (eg., User provides file)
+- More efficient rendering of text.
+  - Since we are rendering to a backubuffer we only need to do this once
+  - Instead of passing one quad for the buffer we could pass smaller quads with the written to
+    regions, this could be inferred from the vertices set up in Buttons.
+    Therefore, we can probably merge those shaders into one draw call.
 
+Misc
+- metadesk for build targets
 
 Base
 - tag calls with callstack
+
+Archived
+x Build buttons and render after.
+x Investigate button drawing performance.
+  - Font rasterizing is taking up most of the time.
+x Path from exe -> simplify

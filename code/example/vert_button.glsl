@@ -9,17 +9,20 @@ in v3 pos;
 in v3 color;
 in v2 buttonMin;
 in v2 buttonMax;
+in f32 radius;
 
-flat out v3 Color;
 out v2 LocalPos;
+flat out v3 Color;
 flat out v2 ButtonMin;
 flat out v2 ButtonMax;
+flat out f32 Radius;
 
 void main()
 {
     Color = color;
     ButtonMin = buttonMin;
     ButtonMax = buttonMax;
+    Radius = radius;
     
     LocalPos = pos.xy;
     

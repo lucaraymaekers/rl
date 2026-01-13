@@ -58,12 +58,10 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             ExeDirPath.Size = OnePastLastSlash;
         }
         
-        app_state AppState = {};
-        AppState.ExeDirPath = ExeDirPath;
-        AppState.PermanentArena = PermanentArena;
-        
+        app_memory AppMemory = {};
+        AppMemory.ExeDirPath = ExeDirPath;
 #if RL_INTERNAL
-        AppState.DebuggerAttached = GlobalDebuggerIsAttached;
+        AppMemory.IsDebuggerAttached = GlobalDebuggerIsAttached;
 #endif
         
         app_input Input[2] = {};
@@ -83,11 +81,11 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         
         s64 LastWriteTime = {};
 #if OS_LINUX        
-        Code.LibraryPath = PathFromExe(PermanentArena, &AppState, S8("ex_app.so"));
+        Code.LibraryPath = PathFromExe(PermanentArena, &AppMemory, S8("ex_app.so"));
         void *LinuxLibraryHandle = 0;
         Code.LibraryHandle = (umm)LinuxLibraryHandle;
 #else
-        Code.LibraryPath = PathFromExe(PermanentArena, &AppState, S8("ex_app.dll"));
+        Code.LibraryPath = PathFromExe(PermanentArena, &AppMemory, S8("ex_app.dll"));
         HMODULE Win32LibraryHandle = 0;
         Code.LibraryHandle = (umm)Win32LibraryHandle;
 #endif
@@ -114,7 +112,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             OS_ProfileAndPrint("InitSetup");
             
             // Load application code
-            P_LoadAppCode(FrameArena, &Code, &AppState, &LastWriteTime);
+            P_LoadAppCode(FrameArena, &Code, &AppMemory, &LastWriteTime);
             OS_ProfileAndPrint("Code");
             
             P_ProcessMessages(PlatformContext, NewInput, &Buffer, Running);
@@ -125,7 +123,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
             if(!Paused)
             {
-                b32 ShouldQuit = Code.UpdateAndRender(ThreadContext, &AppState, FrameArena, &Buffer, NewInput);
+                b32 ShouldQuit = Code.UpdateAndRender(ThreadContext, &AppMemory, PermanentArena, FrameArena, &Buffer, NewInput);
                 // NOTE(luca): Since UpdateAndRender can take some time, there could have been a signal sent to INT the app.
                 ReadWriteBarrier;
                 *Running = *Running && !ShouldQuit;
@@ -188,7 +186,6 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
             OS_ProfileAndPrint("Sleep");
             
-            f32 FPS = Min(1000.0f/WorkMSPerFrame, GameUpdateHz);
             Log("'%c' (%d, %d) 1:%c 2:%c 3:%c", 
                 (u8)NewInput->Text.Buffer[0].Codepoint,
                 NewInput->MouseX, NewInput->MouseY,
@@ -196,7 +193,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 (NewInput->Buttons[PlatformButton_Middle].EndedDown ? 'x' : 'o'),
                 (NewInput->Buttons[PlatformButton_Right ].EndedDown ? 'x' : 'o')); 
             
-            Log(" %.2fms/f %.0fFPS", (f64)WorkMSPerFrame, (f64)FPS);
+            Log(" %.2fms/f", (f64)WorkMSPerFrame);
             Log("\n");
             
             FlipWallClock = OS_GetWallClock();
