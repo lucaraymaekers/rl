@@ -11,15 +11,37 @@
 //~ Constants
 
 // AA BB GG RR
-#define Color_Text          0xff87bfcf
-#define Color_Point         0xFF00FFFF
-#define Color_Cursor        0xFFFF0000
-#define Color_Button        0xFF0172AD
-#define Color_ButtonHovered 0xFF017FC0
-#define Color_ButtonPressed 0xFF0987C8
-#define Color_ButtonText    0xFFFBFDFE
-#define Color_Background    0xFF13171F
-#define Color_BackgroundSecond 0xFF3A4151
+
+#define HexToRGBV3(Hex) \
+((f32)((Hex >> 8*2) & 0xFF)/255.0f), \
+((f32)((Hex >> 8*1) & 0xFF)/255.0f), \
+((f32)((Hex >> 8*0) & 0xFF)/255.0f)
+
+#define V3Arg(Value) Value.X, Value.Y, Value.Z
+
+#define ColorList \
+COLOR(Text,          0xff87bfcf); \
+COLOR(Point,         0xFF00FFFF); \
+COLOR(Cursor,        0xFFFF0000); \
+COLOR(Button,        0xFF0172AD); \
+COLOR(ButtonHovered, 0xFF017FC0); \
+COLOR(ButtonPressed, 0xFF0987C8); \
+COLOR(ButtonText,    0xFFFBFDFE); \
+COLOR(Background,    0xFF13171F); \
+COLOR(BackgroundSecond, 0xFF3A4151); \
+COLOR(Red,           0xFFBF616A); \
+COLOR(Green,         0xFFA3BE8C); \
+COLOR(Orange,        0xFFD08770); \
+COLOR(Magenta,       0xFFB48EAD); \
+COLOR(Yellow,        0xFFEBCB8B);
+
+#define COLOR(Name, Value) u32 ColorU32_##Name = Value; 
+ColorList
+#undef COLOR
+
+#define COLOR(Name, Value) v3 Color_##Name = {HexToRGBV3(Value)};
+ColorList
+#undef COLOR
 
 #define Strs_CodePath                 ".." SLASH "code" SLASH "example" SLASH 
 #define Strs_DataPath                 ".." SLASH "data" SLASH 
@@ -45,6 +67,9 @@ global_variable model_path Models[] =
     ModelPathFromFolder("fly"),
     ModelPathFromFolder("coins"),
     ModelPathFromFolder("gold"),
+    ModelPathFromFolder("red"),
+    ModelPathFromFolder("white"),
+    ModelPathFromFolder("green"),
     ModelPathFromFolder("bucket"),
     ModelPathFromFolder("golem"),
     ModelPathFromFolder("crab"),
@@ -56,11 +81,6 @@ global_variable model_path Models[] =
     ModelPathFromFolder("sword"),
     ModelPathFromFolder("frog"),
 };
-
-#define HexToRGBV3(Hex) \
-((f32)((Hex >> 8*2) & 0xFF)/255.0f), \
-((f32)((Hex >> 8*1) & 0xFF)/255.0f), \
-((f32)((Hex >> 8*0) & 0xFF)/255.0f)
 
 
 //~ Helpers
@@ -96,7 +116,6 @@ gl_ErrorStatus(gl_handle Handle, b32 IsShader)
     if(!Success)
     {
         ErrorLog("%s", InfoLog);
-        DebugBreak;
     }
 }
 
@@ -458,12 +477,23 @@ AddButton(app_input *Input, v2 BufferDim,
     v2 Min = V2MulV2(Button->Min, BufferDim); 
     v2 Max = V2MulV2(Button->Max, BufferDim);
     
-    b32 Hovered = false;
-    Hovered = InBounds(Pos, Min, Max);;
-    Clicked = (Hovered && Input->Buttons[PlatformButton_Left].EndedDown);
+    app_button_state ButtonLeft = Input->Buttons[PlatformButton_Left];
     
-    Button->Hovered = Hovered;
-    Button->Clicked = Clicked;
+    {    
+        b32 Hovered = InBounds(Pos, Min, Max);
+        
+        // NOTE(luca): If mouse released and hovered then the button is considered clicked
+        Clicked = (Button->Pressed && Hovered && !ButtonLeft.EndedDown);
+        
+        // NOTE(luca): Only triggers if this is the first click 
+        b32 Pressed = (Hovered && WasPressed(ButtonLeft));
+        
+        // NOTE(luca): Keep pressed state if mouse is still down
+        Button->Pressed = (Pressed || (Button->Pressed && ButtonLeft.EndedDown)); 
+        
+        // NOTE(luca): Only hover when mouse button is up
+        Button->Hovered = (Hovered && !ButtonLeft.EndedDown);
+    }
     
     return Clicked;
 }
@@ -479,18 +509,19 @@ DrawButton(arena *Arena, v2 BufferDim, app_offscreen_buffer *TextImage,
            button *Button)
 {
     v3 Color = {};
+    
     if(0) {}
-    else if(Button->Clicked)
+    else if(Button->Pressed)
     {
-        Color = {HexToRGBV3(Color_ButtonPressed)};
+        Color = Color_Red;
     }
     else if(Button->Hovered)
     {
-        Color = {HexToRGBV3(Color_ButtonHovered)};
+        Color = Color_Green;
     }
     else
     {
-        Color = {HexToRGBV3(Color_Button)};
+        Color = Color_Magenta;
     }
     
     // Draw button background
@@ -522,7 +553,7 @@ DrawButton(arena *Arena, v2 BufferDim, app_offscreen_buffer *TextImage,
         f32 X = (Button->Min.X * (f32)TextImage->Width);
         f32 Y = (Button->Min.Y * (f32)TextImage->Height);
         rlf_DrawText(Arena, TextImage, Font, 
-                     HeightPx, Text, {X, Y + Baseline}, Color_ButtonText, false);
+                     HeightPx, Text, {X, Y + Baseline}, ColorU32_ButtonText, false);
     }
 }
 
@@ -846,7 +877,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     {    
         if(AddButton(Input, BufferDim,
                      &ButtonsCount, Buttons, ButtonMin, ButtonDim, ButtonPadY, ButtonCornerRadius, 
-                     S8("Press")))
+                     S8("Reset")))
         {
             ResetApp(App);
         }
@@ -919,7 +950,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         gl_render_data *Render = &App->Render;
         
         glViewport(0, 0, Buffer->Width, Buffer->Height);
-        glClearColor(HexToRGBV3(Color_BackgroundSecond), 0.0f);
+        glClearColor(V3Arg(Color_BackgroundSecond), 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         // Draw model
@@ -935,7 +966,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             UAngle = glGetUniformLocation(Render->ModelShader, "angle");
             UColor = glGetUniformLocation(Render->ModelShader, "color");
             
-            v3 Color = {HexToRGBV3(Color_Point)};
+            v3 Color = Color_Point;
             f32 XAngle = Pi32 * App->Angle.X;
             f32 YAngle = Pi32 * App->Angle.Y;
             glUniform2f(UAngle, XAngle, YAngle);

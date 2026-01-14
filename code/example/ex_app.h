@@ -18,8 +18,9 @@ struct button
     v2 Min;
     v2 Max;
     f32 Radius;
+    
     b32 Hovered;
-    b32 Clicked;
+    b32 Pressed;
 };
 
 typedef struct button_render_data button_render_data;
