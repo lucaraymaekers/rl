@@ -14,13 +14,13 @@ gcc=0
 debug=1
 release=0
 personal=0
-nofast=0
-fast=1
+slow=0
 
 # Targets
 clean=0
 all=0
 hash=0
+nieuw=0
 samples=0
 cuversine=0
 example=0
@@ -30,8 +30,7 @@ gl=0
 windows=0
 cling=0
 rldroid=0
-libs=0
-Targets="hash/samples/cling/rldroid/cuversine/example [sort/app/gl/windows/libs]\n"
+Targets="hash/samples/cling/rldroid/cuversine/example [sort/app/gl/windows]"
 
 # Default
 [ "$#" = 0 ] && example=1 && app=1
@@ -40,7 +39,6 @@ for Arg in "$@"; do eval "$Arg=1"; done
 # Exclusive flags
 [ "$release" = 1 ] && debug=0
 [ "$gcc"     = 1 ] && clang=0
-[ "$nofast"  = 1 ] && fast=0
 mkdir -p "$Build"
 
 [ -f "./base/base_build.h" ] && personal=1
@@ -118,7 +116,7 @@ C_Compile()
  DebugFlags="-g -ggdb -g3"
  ReleaseFlags="-O3"
 
- ClangFlags="-fno-omit-frame-pointer -fdiagnostics-absolute-paths -fsanitize-undefined-trap-on-error -ftime-trace
+ ClangFlags="-fsanitize=address -fno-omit-frame-pointer -fdiagnostics-absolute-paths -fsanitize-undefined-trap-on-error -ftime-trace
 -Wno-null-dereference -Wno-missing-braces -Wno-vla-extension -Wno-writable-strings   -Wno-address-of-temporary -Wno-int-to-void-pointer-cast -Wno-reorder-init-list -Wno-c99-designator"
 
  GCCFlags="-Wno-cast-function-type -Wno-missing-field-initializers -Wno-int-to-pointer-cast"
@@ -127,6 +125,7 @@ C_Compile()
  [ "$debug"   = 1 ] && Flags="$Flags $DebugFlags"
  [ "$release" = 1 ] && Flags="$Flags $ReleaseFlags"
  [ "$personal" = 1 ] && Flags="$Flags -DRL_PERSONAL=1"
+ [ "$slow"     = 1 ] && Flags="$Flags -DEX_SLOW_COMPILE=1"
  Flags="$Flags $CommonWarningFlags"
  [ "$clang" = 1 ] && Flags="$Flags $ClangFlags"
  [ "$gcc"   = 1 ] && Flags="$Flags $GCCFlags"
@@ -166,6 +165,8 @@ fi
 [ "$clang" = 1 ] && Compiler="clang"
 printf '[%s compile]\n' "$Compiler"
 
+[ "$nieuw" = 1 ] && C_Compile $(Strip ./nieuw/main.c)
+
 [ "$hash" = 1 ] && C_Compile $(Strip ./hash/hash.c)
 if [ "$samples" = 1 ]
 then
@@ -183,16 +184,20 @@ fi
 AppCompile()
 {
  Dir="$1"
-	ExtraFlags="${2:-}"
+ ExtraFlags="${2:-}"
 
  AppFlags="-fPIC --shared" 
 
  LibsFile="../build/rl_libs.o"
- if [ "$fast" = 1 ]
+
+ # Faster compilation times by compiling all libraries in a separate translation unit.
+ if [ "$slow" = 0 ]
  then
-		{ [ ! -f "$LibsFile" ] || [ "$libs" = 1 ]; } && C_Compile "$Dir"/rl_libs.h "$LibsFile" "-fPIC -x c++ -c -Wno-unused-command-line-argument"
-  AppFlags="$AppFlags -DRL_FAST_COMPILE=1 $LibsFile"
+  { [ ! -f "$LibsFile" ] || [ "$slow" = 1 ]; } &&
+   C_Compile "$Dir"/rl_libs.h "$LibsFile" "-fPIC -x c++ -c -DEX_SLOW_COMPILE=1 -Wno-unused-command-line-argument"
+  AppFlags="$AppFlags $LibsFile"
  fi
+
  C_Compile "$Dir"/ex_app.cpp ex_app.so "$AppFlags $ExtraFlags"
  C_Compile $(Strip $Dir/ex_platform.cpp) "-lX11 -lGL -lGLX $ExtraFlags"
 }
@@ -204,8 +209,6 @@ then
  [ "$gl"   = 1 ] && AppCompile ./example/gl
 	if [ "$windows" = 1 ]
 	then
-		printf '[debug mode]\n'
-		printf '[windows compile]\n'
 		printf 'call C:\BuildTools\devcmd.bat\ncall build.bat\n' | wine cmd.exe 2>/dev/null
 		DidWork=1
 	fi
@@ -214,7 +217,7 @@ fi
 if [ "$cling" = 1 ]
 then 
  [ ! -f "../build/cling" ] && 
-		clang -fdiagnostics-absolute-paths -D_GNU_SOURCE -Wno-writable-strings -I. -g -o ../build/cling ./cling/example.c
+		clang -fdiagnostics-absolute-paths -D_GNU_SOURCE -Wno-writable-strings -I. -g -o ../build/cling ./cling/cling.c
 	cd ..
 	./build/cling
  DidWork=1

@@ -30,6 +30,10 @@ typedef ENTRY_POINT(entry_point_func);
 
 C_LINKAGE ENTRY_POINT(EntryPoint);
 
+#if OS_LINUX
+# include "base_os_linux.h"
+#endif
+
 internal str8  OS_ReadEntireFileIntoMemory(char *FileName);
 internal void  OS_FreeFileMemory(str8 File);
 internal b32   OS_WriteEntireFile(char *FileName, str8 File);
@@ -52,7 +56,6 @@ internal void OS_ProfileAndPrint(char *Label);
 #define ErrorLog(Format, ...) Log(ERROR_FMT Format "\n", ERROR_ARG, ##__VA_ARGS__)
 
 //- Helpers 
-
 #ifndef RL_PROFILE
 # define RL_PROFILE 0
 #endif

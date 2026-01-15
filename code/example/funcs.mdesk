@@ -1,0 +1,17 @@
+@table(Name, Type) ProvokingFuncsTable:
+{
+    {"V2", "v2"},
+    {"V3", "v3"},
+    {"V4", "v4"},
+    {"F32", "f32"},
+}
+
+@expand(ProvokingFuncsTable a)
+"""
+internal inline void
+SetProvoking${a.Name}(${a.Type} Quad[6], ${a.Type} Value)
+{
+    Quad[2] = Value;
+    Quad[5] = Value;
+}
+"""

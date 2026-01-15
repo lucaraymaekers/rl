@@ -37,9 +37,11 @@ Misc
 
 Base
 - tag calls with callstack
+- better profiler
 
 Archived
 x Build buttons and render after.
 x Investigate button drawing performance.
   - Font rasterizing is taking up most of the time.
 x Path from exe -> simplify
+x adress sanitizer for arena's

@@ -13,7 +13,7 @@ typedef struct thread_context thread_context;
 struct thread_context
 {
     s64 LaneCount;
-    s64 LaneIndex;
+    s64 LaneIdx;
     
     thread_handle Handle;
     
@@ -22,6 +22,14 @@ struct thread_context
     
     arena *Arena;
 };
+
+#define AtomicAddEvalU64(Pointer, Value) \
+(__sync_fetch_and_add((Pointer), (Value), __ATOMIC_SEQ_CST) + (Value));
+
+thread_static thread_context *ThreadContext;
+
+#define LaneCount() (ThreadContext->LaneCount)
+#define LaneIdx() (ThreadContext->LaneIdx)
 
 internal void ThreadInit(thread_context *ContextToSelect);
 

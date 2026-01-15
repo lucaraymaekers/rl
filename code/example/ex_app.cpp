@@ -6,6 +6,8 @@
 
 #include "rl_libs.h"
 
+#include "base/base.c"
+
 #define New(type, Name, Array, Count) type *Name = Array + Count; Count += 1;
 
 //~ Constants
@@ -479,7 +481,7 @@ AddButton(app_input *Input, v2 BufferDim,
         b32 Hovered = InBounds(Pos, Min, Max);
         
         // TODO(luca): Parameterize clicking behaviour.
-#if 0        
+#if 1        
         // NOTE(luca): If mouse released and hovered then the button is considered clicked
         Clicked = (Button->Pressed && Hovered && !ButtonLeft.EndedDown);
         

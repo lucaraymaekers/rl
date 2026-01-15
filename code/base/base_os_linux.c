@@ -307,10 +307,10 @@ LinuxMainEntryPoint(int ArgsCount, char **Args)
     Ret = pthread_barrier_init((pthread_barrier_t *)Barrier, 0, (u32)ThreadsCount);
     Assert(Ret == 0);
     
-    for EachIndex(Index, ThreadsCount)
+    for EachIndex(Idx, ThreadsCount)
     {
-        entry_point_params *Params = &Threads[Index].Params;
-        Params->Context.LaneIndex = Index;
+        entry_point_params *Params = &Threads[Idx].Params;
+        Params->Context.LaneIdx = Idx;
         Params->Context.LaneCount = ThreadsCount;
         Params->Context.Barrier   = Barrier;
         Params->Context.SharedStorage = &SharedStorage;
@@ -323,9 +323,9 @@ LinuxMainEntryPoint(int ArgsCount, char **Args)
         Params->Context.Handle = Handle;
     }
     
-    for EachIndex(Index, ThreadsCount)
+    for EachIndex(Idx, ThreadsCount)
     {
-        Ret = pthread_join(Threads[Index].Params.Context.Handle, &Threads[Index].Result);
+        Ret = pthread_join(Threads[Idx].Params.Context.Handle, &Threads[Idx].Result);
         Assert(Ret == 0);
     }
     

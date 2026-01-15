@@ -269,13 +269,14 @@ OS_RebuildSelf(arena *Arena, int ArgsCount, char *Args[], char *Env[])
     
     if(ForceRebuild || Rebuild)
     {
-        printf("[self compile]\n");
         str8_list BuildCommandList = CommonBuildCommand(Arena, false, true, true);
         
         u8 TempBuffer[512] = {0};
         
         str8 ClingSourcePath = OS_PathFromExe(TempBuffer, CommandName, S8(CLING_SOURCE_PATH));
         str8 ClingCodePath = OS_PathFromExe(TempBuffer + 256, CommandName, S8(CLING_CODE_PATH));
+        
+        printf(S8Fmt "\n", S8Arg(OS_GetFileName(ClingSourcePath)));
         
         Str8ListAppendMultiple(&BuildCommandList, S8("-o"), S8FromCString(CommandName),
                                S8("-I"), ClingCodePath,

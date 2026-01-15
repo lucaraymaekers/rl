@@ -1,8 +1,16 @@
-#define CLING_CODE_PATH "../code"
-#define BUILD "../build/"
+#include "base/base.h"
 
-#define CLING_SOURCE_PATH CLING_CODE_PATH "/cling/example.c"
+#if OS_WINDOWS
+# define SLASH "\\"
+#elif OS_LINUX
+# define SLASH "/"
+#endif
+
+#define CLING_CODE_PATH   ".." SLASH "code" SLASH
+#define CLING_SOURCE_PATH CLING_CODE_PATH "cling" SLASH "cling.c"
 #include "cling.h"
+
+#define BUILD ".." SLASH "build" SLASH
 
 //~ Globals
 global_variable arena *GlobalClingArena;
@@ -10,11 +18,13 @@ global_variable arena *GlobalClingArena;
 //~ Functions
 void Build(arena *Arena, char *Env[], str8 Source, str8 ExtraFlags)
 {
+    
     str8 Output = PushS8(Arena, KB(2)); 
     
-    printf(S8Fmt "\n", S8Arg(Source));
+    printf(S8Fmt "\n", S8Arg(OS_GetFileName(Source)));
     
     str8_list BuildCommandList = CommonBuildCommand(Arena, false, true ,true);
+    
     Str8ListAppendMultiple(&BuildCommandList, ExtraFlags, Source);
     str8 BuildCommand = Str8ListJoin(BuildCommandList, Output, ' ');
     
@@ -50,6 +60,7 @@ main(int ArgsCount, char *Args[], char *Env[])
     
     b32 HasTarget = ((Example && (App || Sort)) || 
                      Hash);
+    
     if(HasTarget)
     {
         printf("[debug mode]\n"

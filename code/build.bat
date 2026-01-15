@@ -11,7 +11,7 @@ raddbg --ipc kill
 
 set CommonLinkerFlags=-opt:ref -incremental:no user32.lib Gdi32.lib winmm.lib Opengl32.lib
 
-set CommonCompilerFlags=-MTd -Gm- -nologo -GR- -EHa- -Oi -FC -Z7 -WX -W4 -wd4459 -wd4456 -wd4201 -wd4100 -wd4101 -wd4189 -wd4505 -wd4996 -wd4389 -wd4244 -DRL_INTERNAL=1 -I..\code /std:c++20 /Zc:strictStrings-
+set CommonCompilerFlags=-MTd -Gm- -nologo -GR- -EHa- -Oi -FC -Z7 -WX -W4 -wd4459 -wd4456 -wd4201 -wd4100 -wd4101 -wd4189 -wd4505 -wd4996 -wd4389 -wd4244 -DRL_INTERNAL=1 -I..\code /std:c++20 /Zc:strictStrings- -DEX_SLOW_COMPILE=1
 
 REM 64-Bit
 

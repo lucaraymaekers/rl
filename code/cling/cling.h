@@ -13,7 +13,7 @@
 
 #define BASE_NO_ENTRYPOINT 1
 #include "base/base.h"
-
+#include "base/base.c"
 //~ Types
 
 struct str8_list

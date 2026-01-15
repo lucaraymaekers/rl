@@ -1,6 +1,8 @@
 #ifndef RL_FONT_H
 #define RL_FONT_H
 
+#include <stdarg.h>
+#include <stdio.h>
 #include "lib/stb_truetype.h"
 
 struct app_font

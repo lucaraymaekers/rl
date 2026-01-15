@@ -17,6 +17,7 @@ typedef GLXContext (*glXCreateContextAttribsARBProc)(Display*, GLXFBConfig, GLXC
 #include <X11/extensions/Xrandr.h>
 #include <X11/cursorfont.h>
 //- Linux 
+#include <sys/stat.h>
 #include <signal.h>
 #include <dlfcn.h>
 
@@ -233,6 +234,7 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
                     
                     XVisualInfo *Info = glXGetVisualFromFBConfig(DisplayHandle, FBConfig);
                     WindowVisualInfo = *Info;
+                    XFree(Info);
                     
                     Found = true;
                 }

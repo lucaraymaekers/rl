@@ -1,7 +1,8 @@
 #include "base/base.h"
 #include "ex_platform.h"
-
 #include "lib/md5.h"
+
+#include "base/base.c"
 
 #if OS_LINUX
 # include "ex_platform_linux.cpp"
@@ -11,7 +12,7 @@
 
 C_LINKAGE ENTRY_POINT(EntryPoint)
 {
-    if(LaneIndex() == 0)
+    if(LaneIdx() == 0)
     {
         arena *PermanentArena = ArenaAlloc(.Size = GB(3));
         arena *FrameArena = ArenaAlloc(.Size = GB(1));

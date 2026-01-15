@@ -80,10 +80,10 @@ OS_RebuildSelf(str8 StringsBuffer, str8 OutputBuffer,
     
     if(ForceRebuild || Rebuild)
     {
-        printf("[self compile]\n");
-        
         // Build self 
-        {        
+        {
+            printf(S8Fmt "\n", S8Arg(OS_GetFileName(ClingSourcePath)));
+            
             str8_list BuildCommandList = CommonBuildCommand(StringsBuffer, false, true, true);
             
             Str8ListAppend(&BuildCommandList, GlobalClingSourcePath);

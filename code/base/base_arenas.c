@@ -10,10 +10,14 @@ ArenaAlloc_(arena_alloc_params Params)
     }
     
     void *Base = OS_Allocate(Size);
+    AsanPoisonMemoryRegion(Base, Size);
+    
+    umm HeaderSize = sizeof(arena);
+    AsanUnpoisonMemoryRegion(Base, HeaderSize);
     
     Arena = (arena *)Base;
     Arena->Base = Base;
-    Arena->Pos = sizeof(arena);
+    Arena->Pos = HeaderSize;
     Arena->Size = Size;
     
     return Arena;
@@ -23,6 +27,8 @@ internal void *
 ArenaPush(arena *Arena, umm Size)
 {
     void *Result = (u8 *)Arena->Base + Arena->Pos;
+    
+    AsanUnpoisonMemoryRegion(Result, Size);
     
     Assert(Arena->Pos + Size < Arena->Size);
     Arena->Pos += Size;
@@ -69,5 +75,7 @@ internal void
 EndScratch(arena *Arena, umm BackPos)
 {
     Arena->Pos = BackPos;
+    
+    AsanPoisonMemoryRegion((u8 *)Arena->Base + Arena->Pos,
+                           Arena->Size - Arena->Pos);
 }
-

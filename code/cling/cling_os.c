@@ -15,15 +15,15 @@ struct os_command_result
 };
 
 internal str8 OS_PathFromExe(u8 *Buffer, char *ExePath, str8 Path);
+internal str8 OS_GetFileName(str8 FileName);
+internal void OS_RebuildSelf(arena *Arena, int ArgsCount, char *Args[], char *Env[]);
+internal os_command_result  OS_RunCommand(str8 Command, char *Env[], b32 Pipe);
 
 # if OS_WINDOWS
 #  include "cling_os_windows.c"
 # elif OS_LINUX
 #  include "cling_os_linux.c"
 # endif
-
-internal void OS_RebuildSelf(arena *Arena, int ArgsCount, char *Args[], char *Env[]);
-internal os_command_result  OS_RunCommand(str8 Command, char *Env[], b32 Pipe);
 
 #endif // CLING_OS_C
 
@@ -76,6 +76,25 @@ OS_PathFromExe(u8 *Buffer, char *ExePath, str8 Path)
     
     Result.Data = (u8 *)FileName;
     Result.Size = Size;
+    
+    return Result;
+}
+
+internal str8
+OS_GetFileName(str8 FileName)
+{
+    str8 Result = {0};
+    
+    u32 OnePastLastSlash = 0;
+    for EachIndex(Idx, FileName.Size)
+    {
+        if(FileName.Data[Idx] == OS_SlashChar)
+        {
+            OnePastLastSlash = (u32)Idx + 1;
+        }
+    }
+    
+    Result = S8From(FileName, OnePastLastSlash);
     
     return Result;
 }

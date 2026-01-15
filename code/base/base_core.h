@@ -18,7 +18,7 @@
 #endif
 
 // Detect language
-#ifdef __cplusplus
+#if defined(__cplusplus)
 # define LANG_CPP 1
 #else
 # define LANG_C 1
@@ -45,14 +45,6 @@
 #endif
 #ifndef LANG_CPP
 # define LANG_CPP 0
-#endif
-
-// Options for base layer
-#ifdef BASE_NO_ENTRYPOINT
-# undef BASE_NO_ENTRYPOINT
-# define BASE_NO_ENTRYPOINT 1
-#else
-# define BASE_NO_ENTRYPOINT 0
 #endif
 
 //~ OS
@@ -148,15 +140,10 @@ do { if(!(Expression)) TrapMsg(Format, ##__VA_ARGS__); } while(0)
 #define MemoryCopy(Dest, Source, Count) memmove(Dest, Source, Count)
 #define MemorySet(Dest, Value, Count)  memset(Dest, Value, Count)
 
-//~ Keywords
+//~ Attributes
 #define internal static 
 #define local_persist static 
 #define global_variable static
-
-#if RL_FAST_COMPILE
-# undef internal
-# define internal
-#endif
 
 #if COMPILER_MSVC
 # define thread_static __declspec(thread)
@@ -203,6 +190,7 @@ do { if(!(Expression)) TrapMsg(Format, ##__VA_ARGS__); } while(0)
 # define C_LINKAGE_BEGIN
 # define C_LINKAGE_END
 #endif
+
 #if COMPILER_MSVC && !BUILD_DEBUG
 # define NO_OPTIMIZE_BEGIN _Pragma("optimize(\"\", off)")
 # define NO_OPTIMIZE_END _Pragma("optimize(\"\", on)")
@@ -216,6 +204,36 @@ do { if(!(Expression)) TrapMsg(Format, ##__VA_ARGS__); } while(0)
 # define NO_OPTIMIZE_BEGIN
 # define NO_OPTIMIZE_END
 #endif
+
+#if COMPILER_MSVC
+# if defined(__SANITIZE_ADDRESS__)
+#  define ASAN_ENABLED 1
+#  define NO_ASAN __declspec(no_sanitize_address)
+# else
+#  define NO_ASAN
+# endif
+#elif COMPILER_CLANG
+# if defined(__has_feature)
+#  if __has_feature(address_sanitizer) || defined(__SANITIZE_ADDRESS__)
+#   define ASAN_ENABLED 1
+#  endif
+# endif
+# define NO_ASAN __attribute__((no_sanitize("address")))
+#else
+# define NO_ASAN
+#endif
+
+#if ASAN_ENABLED
+C_LINKAGE void __asan_poison_memory_region(void const volatile *Address, size_t Size);
+C_LINKAGE void __asan_unpoison_memory_region(void const volatile *Address, size_t Size);
+# define AsanPoisonMemoryRegion(Address, Size) \
+__asan_poison_memory_region((Address), (Size))
+# define AsanUnpoisonMemoryRegion(Address,  Size) \
+__asan_unpoison_memory_region((Address), (Size))
+#else
+# define AsanPoisonMemoryRegion(Address, Size) ((void)(Address), (void)(Size))
+# define AsanUnpoisonMemoryRegion(Address, Size) ((void)(Address), (void)(Size))
+#endif 
 
 // Push/Pop warnings
 #if COMPILER_GNU

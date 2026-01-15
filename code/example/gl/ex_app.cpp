@@ -1,5 +1,6 @@
-#define BASE_NO_ENTRYPOINT
+#define BASE_NO_ENTRYPOINT 1
 #include "base/base.h"
+#include "base/base.c"
 #include "ex_platform.h"
 
 #include "rl_libs.h"
