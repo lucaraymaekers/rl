@@ -246,12 +246,12 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
 }
 
 internal void
-P_LoadAppCode(arena *Arena, app_code *Code, app_state *App, s64 *LastWriteTime)
+P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory, s64 *LastWriteTime)
 {
     HMODULE Library = (HMODULE)Code->LibraryHandle;
     
-    char *LockFileName = PathFromExe(Arena, App, S8("lock.tmp"));
-    char *TempDLLPath = PathFromExe(Arena, App, S8("ex_app_temp.dll"));
+    char *LockFileName = PathFromExe(Arena, Memory, S8("lock.tmp"));
+    char *TempDLLPath = PathFromExe(Arena, Memory, S8("ex_app_temp.dll"));
     
     WIN32_FILE_ATTRIBUTE_DATA Data;
     
@@ -291,7 +291,7 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_state *App, s64 *LastWriteTime)
                 if(Code->UpdateAndRender)
                 {
                     Code->Loaded = true;
-                    App->Reloaded = true;
+                    Memory->Reloaded = true;
                     Code->LibraryHandle = (umm)Library;
                     Log("\nLibrary reloaded.\n");
                 }

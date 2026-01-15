@@ -117,7 +117,7 @@ Swap(type& A, type& B) { type T = A; A = B; B = T; }
 #endif
 
 #if COMPILER_MSVC
-# define ReadWriteBarrier _ReadBarrier() _WriteBarrier() 
+# define ReadWriteBarrier _ReadBarrier(); _WriteBarrier(); 
 #elif COMPILER_GNU || COMPILER_CLANG
 # define ReadWriteBarrier __asm__ __volatile__ ("" : : : "memory")
 #endif
