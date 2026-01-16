@@ -195,11 +195,19 @@ AppCompile()
 
  LibsFile="../build/ex_libs.o"
 
+
  # Faster compilation times by compiling all libraries in a separate translation unit.
  if [ "$slow" = 0 ]
  then
-  { [ ! -f "$LibsFile" ] || [ "$slow" = 1 ]; } &&
+		# If libsfile does not exist or
+		# If compiling with asan but libsfile does not contain asan
+		# If compiling without asan but libsfile contains asan
+		if  { { [ "$asan" = 0 ] && nm "$LibsFile" | grep 'asan' > /dev/null; } ||
+						  { [ "$asan" = 1 ] && ! nm "$LibsFile" | grep 'asan' > /dev/null; } ||
+						  [ ! -f "$LibsFile" ]; }
+		then
    C_Compile "$AppDir"/ex_libs.h "$LibsFile" "-fPIC -x c++ -c -DEX_SLOW_COMPILE=1 -Wno-unused-command-line-argument"
+		fi
   AppFlags="$AppFlags $LibsFile"
  fi
 
