@@ -94,4 +94,12 @@ RandomBetween(random_series *Series, f32 Min, f32 Max)
     return Result;
 }
 
+internal u32
+RandomChoice(random_series *Series, u32 Count)
+{
+    u32 Result = (RandomNext(Series) % Count);
+    
+    return Result;
+}
+
 #endif //ZC_RANDOM_H

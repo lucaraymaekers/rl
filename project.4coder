@@ -28,7 +28,8 @@ paths =
     { .path = "code/base",    .recursive = true,  .relative = true, },
     { .path = "code/lib",     .recursive = true,  .relative = true, },
     //{ .path = "code/rldroid/", .recursive = false, .relative = true, },
-    { .path = "code/example/droid", .recursive = false, .relative = true, },
+    //{ .path = "code/example/droid", .recursive = false, .relative = true, },
+    { .path = "code/zcdp", .recursive = false, .relative = true, },
 };
 
 load_paths =

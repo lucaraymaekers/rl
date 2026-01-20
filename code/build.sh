@@ -253,9 +253,7 @@ then
  DidWork=1
 fi
 
-[ "$zcdp" = 1 ] &&
- C_Compile $(Strip ./zcdp/zc.c) &&
- C_Compile $(Strip ./zcdp/zc_client.c)
+[ "$zcdp" = 1 ] && C_Compile $(Strip ./zcdp/zc.c)
 
 #- End
 
