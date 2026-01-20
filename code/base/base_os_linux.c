@@ -21,9 +21,10 @@
 #include <link.h>
 
 #include "base_arenas.h"
+#include "base_os_linux_errno_to_str8.c"
 
-#define ERRNO_FMT "Errno(%d): %s"
-#define ERRNO_ARG errno, strerror(errno)
+#define ERRNO_FMT "Errno(%d): " S8Fmt
+#define ERRNO_ARG errno, S8Arg(ErrnoToStr8(errno))
 
 //~ Types
 typedef void *pthread_entry_point_func(void *);
@@ -181,7 +182,6 @@ OS_ChangeDirectory(char *Path)
     }
 }
 
-
 //~ Entrypoint
 global_variable thread_context *DEBUGThreadContext; 
 
@@ -233,44 +233,47 @@ LinuxSigHandler(int Signal, siginfo_t *Info, void *Arg)
 #endif
 }
 
+void
+LinuxSetDebuggerAttached()
+{
+    s32 TracerPid = 0;
+    
+    u8 FileBuffer[KB(2)] = {0};
+    int File = open("/proc/self/status", O_RDONLY);
+    smm Size = read(File, FileBuffer, sizeof(FileBuffer));
+    str8 Out = {FileBuffer, (umm)Size};
+    
+    str8 TracerPidKey = S8("TracerPid:\t");
+    
+    for EachIndex(Idx, Out.Size)
+    {
+        str8 Search = S8From(Out, Idx);
+        if(S8Match(TracerPidKey, Search, true))
+        {
+            Idx += TracerPidKey.Size;
+            
+            while(Idx < Out.Size && 
+                  (Out.Data[Idx] >= '0' && Out.Data[Idx] <= '9') &&
+                  Out.Data[Idx] != '\n')
+            {
+                s32 Digit = (s32)(Out.Data[Idx] - '0');
+                TracerPid = 10*TracerPid + Digit;
+                Idx += 1;
+            }
+            
+            break;
+        }
+        
+        while(Idx < Out.Size && Out.Data[Idx] != '\n') Idx += 1;
+    }
+    
+    GlobalDebuggerIsAttached = !!TracerPid;
+}
+
 internal void 
 LinuxMainEntryPoint(int ArgsCount, char **Args)
 {
-    // Check if debugger is attached
-    {
-        s32 TracerPid = 0;
-        
-        u8 FileBuffer[KB(2)] = {0};
-        int File = open("/proc/self/status", O_RDONLY);
-        smm Size = read(File, FileBuffer, sizeof(FileBuffer));
-        str8 Out = {FileBuffer, (umm)Size};
-        
-        str8 TracerPidKey = S8("TracerPid:\t");
-        
-        for EachIndex(Idx, Out.Size)
-        {
-            str8 Search = S8From(Out, Idx);
-            if(S8Match(TracerPidKey, Search, true))
-            {
-                Idx += TracerPidKey.Size;
-                
-                while(Idx < Out.Size && 
-                      (Out.Data[Idx] >= '0' && Out.Data[Idx] <= '9') &&
-                      Out.Data[Idx] != '\n')
-                {
-                    s32 Digit = (s32)(Out.Data[Idx] - '0');
-                    TracerPid = 10*TracerPid + Digit;
-                    Idx += 1;
-                }
-                
-                break;
-            }
-            
-            while(Idx < Out.Size && Out.Data[Idx] != '\n') Idx += 1;
-        }
-        
-        GlobalDebuggerIsAttached = !!TracerPid;
-    }
+    LinuxSetDebuggerAttached();
     
     // Install signal handler for crash with callstacks
     {

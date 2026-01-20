@@ -200,6 +200,10 @@ do { if(!(Expression)) TrapMsg(Format, ##__VA_ARGS__); } while(0)
 # define C_LINKAGE_END
 #endif
 
+#define NO_STRUCT_PADDING_BEGIN _Pragma("pack(push, 1)")
+#define NO_STRUCT_PADDING_END _Pragma("pack(pop)")
+
+
 #if COMPILER_MSVC && !BUILD_DEBUG
 # define NO_OPTIMIZE_BEGIN _Pragma("optimize(\"\", off)")
 # define NO_OPTIMIZE_END _Pragma("optimize(\"\", on)")

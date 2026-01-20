@@ -1,7 +1,7 @@
 /* date = December 21st 2025 1:11 pm */
 
-#ifndef EX_RANDOM_H
-#define EX_RANDOM_H
+#ifndef ZC_RANDOM_H
+#define ZC_RANDOM_H
 
 //~ Random 
 #include <math.h>
@@ -94,4 +94,4 @@ RandomBetween(random_series *Series, f32 Min, f32 Max)
     return Result;
 }
 
-#endif //EX_RANDOM_H
+#endif //ZC_RANDOM_H
