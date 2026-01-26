@@ -15,7 +15,7 @@ APKFILE ?= $(APPNAME).apk
 PACKAGENAME?=org.yourorg.$(APPNAME)
 RAWDRAWANDROID?=.
 RAWDRAWANDROIDSRCS=$(RAWDRAWANDROID)/android_native_app_glue.c
-SRC?=../../example/droid/ex_platform.cpp
+SRC?=../../example/ex_platform.cpp
 # NOTE(luca): This is to tell make which other source files to check for...
 EXTRASRC=../../example/droid/ex_app.c
 BUILD_DIR?=../../../build

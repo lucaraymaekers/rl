@@ -25,11 +25,13 @@ Example App
  #pragma pack(pop)
 - UI needs previous frame layout to query things like was this button pressed
 
-- infinite Button list
+- Infinite Button list
 - Linux platform:
   - for input events, make sure we only get one event per frame.
   - loop editing
 - VSync
+- Android:
+  - Hot reload shared libraries ?
 
 Misc
 - metadesk for build targets
