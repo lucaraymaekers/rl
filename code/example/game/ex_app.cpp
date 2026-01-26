@@ -157,12 +157,21 @@ UPDATE_AND_RENDER(UpdateAndRender)
         TexCoordsPtr += 6;
     }
     
-    gl_LoadFloatsIntoBuffer(VBOs[0], Shader, "pos", VerticesCount, 3, Vertices);
-    gl_LoadFloatsIntoBuffer(VBOs[1], Shader, "tex", VerticesCount, 2, TexCoords);
-    
+#if 1 
+    MemorySet(EnemyImage.Pixels, 0, EnemyImage.Pitch*EnemyImage.Height);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+#else
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glEnable(GL_BLEND);  
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
     glEnable(GL_DEPTH_TEST);
+#endif
+    
+    gl_LoadFloatsIntoBuffer(VBOs[0], Shader, "pos", VerticesCount, 3, Vertices);
+    gl_LoadFloatsIntoBuffer(VBOs[1], Shader, "tex", VerticesCount, 2, TexCoords);
+    
     glDrawArrays(GL_TRIANGLES, 0, VerticesCount);
     
     // Cleanup

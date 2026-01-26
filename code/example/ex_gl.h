@@ -76,11 +76,12 @@ gl_LoadFloatsIntoBuffer(gl_handle BufferHandle, gl_handle ShaderHandle, char *At
 {
     gl_handle AttribHandle;
     
-    glBindBuffer(GL_ARRAY_BUFFER, BufferHandle);
-    
     s32 SizeOfVec = sizeof(f32)*VecSize;
     
+    glBindBuffer(GL_ARRAY_BUFFER, BufferHandle);
+    
     AttribHandle = glGetAttribLocation(ShaderHandle, AttributeName);
+    Assert(AttribHandle != -1);
     glEnableVertexAttribArray(AttribHandle);
     glVertexAttribPointer(AttribHandle, VecSize, GL_FLOAT, GL_FALSE, SizeOfVec, 0);
     
